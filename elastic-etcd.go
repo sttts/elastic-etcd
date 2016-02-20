@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -69,7 +70,7 @@ func printFlags(r *Result) {
 	fmt.Fprintln(os.Stdout, params)
 }
 
-func main() {
+func Run(args []string) (*Result, string, error) {
 	var (
 		discoveryUrl             string
 		joinStrategy             string
@@ -84,36 +85,55 @@ func main() {
 	var formats = []string{"env", "dropin", "flags"}
 	var strategies = []join.Strategy{join.PreparedStrategy, join.ReplaceStrategy, join.PruneStrategy, join.AddStrategy}
 
-	checkFlags := func() {
+	checkFlags := func() error {
 		if name == "" {
-			fmt.Fprint(os.Stderr, "name must be set\n")
-			os.Exit(1)
+			return errors.New("name must be set")
 		}
 		if initialAdvertisePeerUrls == "" {
-			fmt.Fprint(os.Stderr, "initial-advertise-peer-urls must consist at least of one url\n")
-			os.Exit(1)
+			return errors.New("initial-advertise-peer-urls must consist at least of one url")
 		}
 		if discoveryUrl == "" {
-			fmt.Fprint(os.Stderr, "discovery-url must be set\n")
-			os.Exit(1)
+			return errors.New("discovery-url must be set")
 		}
 
 		discoveryUrl = strings.TrimRight(discoveryUrl, "/")
 
 		u, err := url.Parse(discoveryUrl)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "invalid discovery url %q: %v\n", discoveryUrl, err)
-			os.Exit(1)
+			return fmt.Errorf("invalid discovery url %q: %v", discoveryUrl, err)
 		}
 		if u.Scheme != "http" && u.Scheme != "https" {
-			fmt.Fprint(os.Stderr, "discovery url must use http or https scheme\n")
-			os.Exit(1)
+			return errors.New("discovery url must use http or https scheme")
 		}
+
+		ok := false
+		for _, f := range formats {
+			if f == format {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return fmt.Errorf("invalid output format %q", format)
+		}
+
+		ok = false
+		for _, s := range strategies {
+			if s == join.Strategy(joinStrategy) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return fmt.Errorf("invalid join strategy %q", joinStrategy)
+		}
+
+		return nil
 	}
 
 	app := cli.NewApp()
 	app.Name = "elastic-etcd"
-	app.Usage = "make etcd2 a good elastic cloud citizen"
+	app.Usage = "auto join a cluster, either during bootstrapping or later"
 	app.HideVersion = true
 	app.Version = ""
 	app.Flags = []cli.Flag{
@@ -124,126 +144,113 @@ func main() {
 			Destination: &discoveryUrl,
 			EnvVar:      "ELASTIC_ETCD_DISCOVERY",
 		},
+		cli.StringFlag{
+			Name:        "join-strategy",
+			Usage:       "the strategy to join: dumb, replace, add",
+			EnvVar:      "ETCD_JOIN_STRATEGY",
+			Value:       string(join.ReplaceStrategy),
+			Destination: &joinStrategy,
+		},
+		cli.StringFlag{
+			Name:        "data-dir",
+			Usage:       "the etcd data directory",
+			EnvVar:      "ETCD_DATA_DIR",
+			Value:       "",
+			Destination: &dataDir,
+		},
+		cli.StringFlag{
+			Name:        "o",
+			Usage:       fmt.Sprintf("the output format out of: %s", strings.Join(formats, ", ")),
+			Value:       "env",
+			Destination: &format,
+		},
+		cli.StringFlag{
+			Name:        "name",
+			Usage:       "the cluster-unique node name",
+			EnvVar:      "ETCD_NAME",
+			Value:       "",
+			Destination: &name,
+		},
+		cli.IntFlag{
+			Name:        "client-port",
+			Usage:       "the etcd client port of all peers",
+			EnvVar:      "ETCD_CLIENT_PORT",
+			Value:       2379,
+			Destination: &clientPort,
+		},
+		cli.IntFlag{
+			Name:        "cluster-size",
+			Usage:       "the maximum etcd cluster size, default: size value of discovery url, 0 for infinit",
+			EnvVar:      "ETCD_CLUSTER_SIZE",
+			Value:       -1,
+			Destination: &clusterSize,
+		},
+		cli.StringFlag{
+			Name:        "initial-advertise-peer-urls",
+			Usage:       "the advertised peer urls of this instance",
+			EnvVar:      "ETCD_INITIAL_ADVERTISE_PEER_URLS",
+			Value:       "http://localhost:2380",
+			Destination: &initialAdvertisePeerUrls,
+		},
 	}
 	flag.CommandLine.VisitAll(func(f *flag.Flag) {
 		if !strings.HasPrefix(f.Name, "test.") {
 			app.Flags = append(app.Flags, cliext.FlagsFlag{f})
 		}
 	})
+
+	var actionErr error
+	var actionResult *Result
 	app.Action = func(c *cli.Context) {
-		checkFlags()
-	}
-	app.Commands = []cli.Command{
-		{
-			Name:  "join",
-			Usage: "auto join a cluster, either during bootstrapping or later",
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:        "join-strategy",
-					Usage:       "the strategy to join: dumb, replace, add",
-					EnvVar:      "ETCD_JOIN_STRATEGY",
-					Value:       string(join.ReplaceStrategy),
-					Destination: &joinStrategy,
-				},
-				cli.StringFlag{
-					Name:        "data-dir",
-					Usage:       "the etcd data directory",
-					EnvVar:      "ETCD_DATA_DIR",
-					Value:       "",
-					Destination: &dataDir,
-				},
-				cli.StringFlag{
-					Name:        "o",
-					Usage:       fmt.Sprintf("the output format out of: %s", strings.Join(formats, ", ")),
-					Value:       "env",
-					Destination: &format,
-				},
-				cli.StringFlag{
-					Name:        "name",
-					Usage:       "the cluster-unique node name",
-					EnvVar:      "ETCD_NAME",
-					Value:       "",
-					Destination: &name,
-				},
-				cli.IntFlag{
-					Name:        "client-port",
-					Usage:       "the etcd client port of all peers",
-					EnvVar:      "ETCD_CLIENT_PORT",
-					Value:       2379,
-					Destination: &clientPort,
-				},
-				cli.IntFlag{
-					Name:        "cluster-size",
-					Usage:       "the maximum etcd cluster size, default: size value of discovery url, 0 for infinit",
-					EnvVar:      "ETCD_CLUSTER_SIZE",
-					Value:       -1,
-					Destination: &clusterSize,
-				},
-				cli.StringFlag{
-					Name:        "initial-advertise-peer-urls",
-					Usage:       "the advertised peer urls of this instance",
-					EnvVar:      "ETCD_INITIAL_ADVERTISE_PEER_URLS",
-					Value:       "http://localhost:2380",
-					Destination: &initialAdvertisePeerUrls,
-				},
-			},
-			Action: func(c *cli.Context) {
-				checkFlags()
+		err := checkFlags()
+		if err != nil {
+			actionErr = err
+			return
+		}
 
-				ok := false
-				for _, f := range formats {
-					if f == format {
-						ok = true
-						break
-					}
-				}
-				if !ok {
-					fmt.Fprintf(os.Stderr, "invalid output format %q\n", format)
-					os.Exit(1)
-				}
+		// derive configuration values
+		if dataDir == "" {
+			dataDir = name + ".etcd"
+		}
+		fresh := !fileutil.Exist(dataDir)
 
-				ok = false
-				for _, s := range strategies {
-					if s == join.Strategy(joinStrategy) {
-						ok = true
-						break
-					}
-				}
-				if !ok {
-					fmt.Fprintf(os.Stderr, "invalid join strategy %q\n", joinStrategy)
-					os.Exit(1)
-				}
-
-				if dataDir == "" {
-					dataDir = name + ".etcd"
-				}
-				fresh := !fileutil.Exist(dataDir)
-
-				jr, err := join.Join(
-					discoveryUrl,
-					name,
-					initialAdvertisePeerUrls,
-					fresh,
-					clientPort,
-					clusterSize,
-					join.Strategy(joinStrategy),
-				)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "cluster join failed: %v\n", err)
-					os.Exit(1)
-				}
-				r := &Result{*jr, dataDir}
-				switch format {
-				case "flags":
-					printFlags(r)
-				case "env":
-					printEnv(r)
-				case "dropin":
-					printDropin(r)
-				}
-			},
-		},
+		jr, err := join.Join(
+			discoveryUrl,
+			name,
+			initialAdvertisePeerUrls,
+			fresh,
+			clientPort,
+			clusterSize,
+			join.Strategy(joinStrategy),
+		)
+		if err != nil {
+			actionErr = fmt.Errorf("cluster join failed: %v", err)
+			return
+		}
+		actionResult = &Result{*jr, dataDir}
 	}
 
-	app.Run(os.Args)
+	err := app.Run(args)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return actionResult, format, actionErr
+}
+
+func main() {
+	r, format, err := Run(os.Args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	switch format {
+	case "flags":
+		printFlags(r)
+	case "env":
+		printEnv(r)
+	case "dropin":
+		printDropin(r)
+	}
 }
