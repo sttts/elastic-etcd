@@ -122,7 +122,7 @@ searchForDead:
 	return selected, nil
 }
 
-func (ma *MemberAdder) protectQuorum(ctx context.Context) error {
+func (ma *MemberAdder) protectCluster(ctx context.Context) error {
 	// check that we don't destroy the quorum
 	ms, err := ma.mapi.List(ctx)
 	if err != nil {
@@ -140,6 +140,11 @@ func (ma *MemberAdder) protectQuorum(ctx context.Context) error {
 			}
 		}
 	}
+
+	if startedMembers >= ma.targetSize {
+		return fmt.Errorf("cluster is already full with %d members", ma.targetSize)
+	}
+
 	futureQuorum := (startedMembers+1)/2 + 1
 	if healthyMembers < futureQuorum {
 		return fmt.Errorf("cannot add another member temporarily to the %d member "+
@@ -168,7 +173,7 @@ func (ma *MemberAdder) Add(
 	if unstarted != nil {
 		glog.Infof("Found matching member entry %s=%v, no need to add", unstarted.Name, unstarted.PeerURLs)
 
-		if err := ma.protectQuorum(ctx); err != nil {
+		if err := ma.protectCluster(ctx); err != nil {
 			return nil, err
 		}
 
@@ -201,7 +206,7 @@ func (ma *MemberAdder) Add(
 		}
 	}
 
-	if err := ma.protectQuorum(ctx); err != nil {
+	if err := ma.protectCluster(ctx); err != nil {
 		return nil, err
 	}
 

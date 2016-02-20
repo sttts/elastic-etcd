@@ -2,6 +2,7 @@ package join
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -31,6 +32,9 @@ const (
 	PruneStrategy    = Strategy("prune")
 	ReplaceStrategy  = Strategy("replace")
 	AddStrategy      = Strategy("add")
+
+	maxUint = ^uint(0)
+	maxInt = int(maxUint >> 1)
 )
 
 type Result struct {
@@ -179,7 +183,7 @@ func deleteDiscoveryMachine(ctx context.Context, baseUrl, id string) error {
 func Join(
 	url, name, initialAdvertisePeerUrls string,
 	fresh bool,
-	clientPort int,
+	clientPort, clusterSize int,
 	strategy Strategy,
 ) (*Result, error) {
 	ctx := context.Background()
@@ -201,19 +205,37 @@ func Join(
 		nodes = append(nodes, *n)
 	}
 
-	res, err = discoveryValue(ctx, url, "/_config/size")
+	if clusterSize < 0 {
+		res, err = discoveryValue(ctx, url, "/_config/size")
+		if err != nil {
+			return nil, fmt.Errorf("cannot get discovery url cluster size: %v", err)
+		}
+
+		size, _ := strconv.ParseInt(*res.Node.Value, 10, 16)
+		clusterSize = int(size)
+		
+		glog.V(2).Infof("Got a target cluster size of %d from the discovery url", clusterSize)
+	} else if clusterSize == 0 {
+		clusterSize = maxInt
+	}
+
+	activeNodes, err := clusterExistingHeuristic(ctx, clusterSize, nodes)
 	if err != nil {
 		return nil, err
 	}
+	if activeNodes != nil && len(activeNodes) == 0 {
+		// cluster down. Restarting nodes with the same config.
 
-	size, err := strconv.ParseInt(*res.Node.Value, 10, 16)
-	glog.V(2).Infof("Got a target cluster size of %d from the discovery url", size)
+		if fresh {
+			return nil, errors.New("Cluster is down. A new node cannot join now.")
+		}
 
-	activeNodes, err := clusterExistingHeuristic(ctx, int(size), nodes)
-	if err != nil {
-		return nil, err
-	}
-	if activeNodes != nil {
+		return &Result{
+			InitialClusterState: "existing",
+			AdvertisePeerUrls:   initialAdvertisePeerUrls,
+			Name:                name,
+		}, nil
+	} else if activeNodes != nil {
 		activeNamedUrls := make([]string, 0, len(nodes))
 		for _, n := range activeNodes {
 			activeNamedUrls = append(activeNamedUrls, n.NamedPeerUrls()...)
@@ -232,7 +254,7 @@ func Join(
 				activeNodes,
 				strategy,
 				clientPort,
-				int(size),
+				clusterSize,
 			)
 			if err != nil {
 				return nil, err

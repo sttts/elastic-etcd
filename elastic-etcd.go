@@ -76,6 +76,7 @@ func main() {
 		format                   string
 		name                     string
 		clientPort               int
+		clusterSize              int
 		initialAdvertisePeerUrls string
 		dataDir                  string
 	)
@@ -171,6 +172,13 @@ func main() {
 					Value:       2379,
 					Destination: &clientPort,
 				},
+				cli.IntFlag{
+					Name:        "cluster-size",
+					Usage:       "the maximum etcd cluster size, default: size value of discovery url, 0 for infinit",
+					EnvVar:      "ETCD_CLUSTER_SIZE",
+					Value:       -1,
+					Destination: &clusterSize,
+				},
 				cli.StringFlag{
 					Name:        "initial-advertise-peer-urls",
 					Usage:       "the advertised peer urls of this instance",
@@ -217,6 +225,7 @@ func main() {
 					initialAdvertisePeerUrls,
 					fresh,
 					clientPort,
+					clusterSize,
 					join.Strategy(joinStrategy),
 				)
 				if err != nil {
