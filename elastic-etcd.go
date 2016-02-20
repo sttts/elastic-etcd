@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/codegangsta/cli"
-	"github.com/sttts/elastic-etcd/cliext"
-	"github.com/sttts/elastic-etcd/join"
 	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/golang/glog"
+	"github.com/sttts/elastic-etcd/cliext"
+	"github.com/sttts/elastic-etcd/join"
 )
 
 type Result struct {

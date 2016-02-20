@@ -146,7 +146,7 @@ func (ma *MemberAdder) protectQuorum(ctx context.Context) error {
 			"cluster (with %d members up) because we put the future quorum %d at risk",
 			startedMembers, healthyMembers, futureQuorum)
 	}
-	glog.Infof("Even when this new member does not successfully start up and join the cluster, " +
+	glog.Infof("Even when this new member does not successfully start up and join the cluster, "+
 		"the future quorum %d is not at risk. Continuing.", futureQuorum)
 	return nil
 }

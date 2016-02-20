@@ -7,7 +7,7 @@ import (
 	"github.com/coreos/etcd/client"
 )
 
-type DiscoveryNode struct{
+type DiscoveryNode struct {
 	client.Member
 }
 
@@ -15,7 +15,7 @@ func NewDiscoveryNode(namedPeerUrls string, clientPort int) (*DiscoveryNode, err
 	urls := strings.Split(namedPeerUrls, ",")
 	n := DiscoveryNode{
 		Member: client.Member{
-			PeerURLs: make([]string, 0, len(urls)),
+			PeerURLs:   make([]string, 0, len(urls)),
 			ClientURLs: make([]string, 0, len(urls)),
 		},
 	}
