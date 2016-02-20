@@ -8,28 +8,36 @@ import (
 	"strings"
 
 	"github.com/codegangsta/cli"
-	"github.com/sttts/elastic-etcd2/cliext"
-	"github.com/sttts/elastic-etcd2/join"
+	"github.com/sttts/elastic-etcd/cliext"
+	"github.com/sttts/elastic-etcd/join"
+	"github.com/coreos/etcd/pkg/fileutil"
+	"github.com/golang/glog"
 )
 
-func joinEnv(r *join.Result) map[string]string {
+type Result struct {
+	join.Result
+	DataDir string
+}
+
+func joinEnv(r *Result) map[string]string {
 	return map[string]string{
 		"ETCD_INITIAL_CLUSTER":            strings.Join(r.InitialCluster, ","),
 		"ETCD_INITIAL_CLUSTER_STATE":      r.InitialClusterState,
 		"ETCD_INITIAL_ADVERTISE_PEER_URL": r.AdvertisePeerUrls,
 		"ETCD_DISCOVERY":                  r.Discovery,
 		"ETCD_NAME":                       r.Name,
+		"ETCD_DATA_DIR":                   r.DataDir,
 	}
 }
 
-func printEnv(r *join.Result) {
+func printEnv(r *Result) {
 	vars := joinEnv(r)
 	for k, v := range vars {
 		fmt.Printf("%s=\"%s\"\n", k, v)
 	}
 }
 
-func printDropin(r *join.Result) {
+func printDropin(r *Result) {
 	println("[service]")
 	vars := joinEnv(r)
 	for k, v := range vars {
@@ -37,7 +45,7 @@ func printDropin(r *join.Result) {
 	}
 }
 
-func printFlags(r *join.Result) {
+func printFlags(r *Result) {
 	args := []string{}
 	if r.InitialClusterState != "" {
 		args = append(args, fmt.Sprintf("-initial-cluster-state=%s", r.InitialClusterState))
@@ -48,29 +56,40 @@ func printFlags(r *join.Result) {
 	if r.Discovery != "" {
 		args = append(args, fmt.Sprintf("-discovery=%s", r.Discovery))
 	}
+	if r.AdvertisePeerUrls != "" {
+		args = append(args, fmt.Sprintf("-initial-advertise-peer-urls=%s", r.AdvertisePeerUrls))
+	}
 
-	args = append(args, fmt.Sprintf("-initial-advertise-peer-urls=%s", r.AdvertisePeerUrls))
 	args = append(args, fmt.Sprintf("-name=%s", r.Name))
+	args = append(args, fmt.Sprintf("-data-dir=%s", r.DataDir))
 
-	fmt.Fprintln(os.Stdout, strings.Join(args, " "))
+	params := strings.Join(args, " ")
+
+	glog.V(4).Infof("Derived etcd parameter: %s", params)
+	fmt.Fprintln(os.Stdout, params)
 }
 
 func main() {
 	var (
 		discoveryUrl             string
-		prune                    bool
-		autoAdd                  bool
+		joinStrategy             string
 		format                   string
 		name                     string
 		clientPort               int
 		initialAdvertisePeerUrls string
+		dataDir                  string
 	)
 
 	var formats = []string{"env", "dropin", "flags"}
+	var strategies = []join.Strategy{join.PreparedStrategy, join.ReplaceStrategy, join.PruneStrategy, join.AddStrategy}
 
 	checkFlags := func() {
 		if name == "" {
 			fmt.Fprint(os.Stderr, "name must be set\n")
+			os.Exit(1)
+		}
+		if initialAdvertisePeerUrls == "" {
+			fmt.Fprint(os.Stderr, "initial-advertise-peer-urls must consist at least of one url\n")
 			os.Exit(1)
 		}
 		if discoveryUrl == "" {
@@ -92,7 +111,7 @@ func main() {
 	}
 
 	app := cli.NewApp()
-	app.Name = "elastic-etcd2"
+	app.Name = "elastic-etcd"
 	app.Usage = "make etcd2 a good elastic cloud citizen"
 	app.HideVersion = true
 	app.Version = ""
@@ -118,17 +137,19 @@ func main() {
 			Name:  "join",
 			Usage: "auto join a cluster, either during bootstrapping or later",
 			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:        "prune",
-					Usage:       "remove not responding members from cluster",
-					EnvVar:      "ELASTIC_ETCD_PRUNE",
-					Destination: &prune,
+				cli.StringFlag{
+					Name:        "join-strategy",
+					Usage:       "the strategy to join: dumb, replace, add",
+					EnvVar:      "ETCD_JOIN_STRATEGY",
+					Value:       string(join.ReplaceStrategy),
+					Destination: &joinStrategy,
 				},
-				cli.BoolTFlag{
-					Name:        "auto-add",
-					Usage:       "add myself to an existing cluster",
-					EnvVar:      "ELASTIC_ETCD_AUTO_ADD",
-					Destination: &autoAdd,
+				cli.StringFlag{
+					Name:        "data-dir",
+					Usage:       "the etcd data directory",
+					EnvVar:      "ETCD_DATA_DIR",
+					Value:       "",
+					Destination: &dataDir,
 				},
 				cli.StringFlag{
 					Name:        "o",
@@ -139,21 +160,21 @@ func main() {
 				cli.StringFlag{
 					Name:        "name",
 					Usage:       "the cluster-unique node name",
-					EnvVar:      "ELASTIC_ETCD_NAME",
+					EnvVar:      "ETCD_NAME",
 					Value:       "",
 					Destination: &name,
 				},
 				cli.IntFlag{
 					Name:        "client-port",
 					Usage:       "the etcd client port of all peers",
-					EnvVar:      "ELASTIC_ETCD_CLIENT_PORT",
+					EnvVar:      "ETCD_CLIENT_PORT",
 					Value:       2379,
 					Destination: &clientPort,
 				},
 				cli.StringFlag{
-					Name:        "initial-advertise-peer-urls=",
+					Name:        "initial-advertise-peer-urls",
 					Usage:       "the advertised peer urls of this instance",
-					EnvVar:      "ELASTIC_ETCD_INITIAL_ADVERTISE_PEER_URLS",
+					EnvVar:      "ETCD_INITIAL_ADVERTISE_PEER_URLS",
 					Value:       "http://localhost:2380",
 					Destination: &initialAdvertisePeerUrls,
 				},
@@ -173,11 +194,36 @@ func main() {
 					os.Exit(1)
 				}
 
-				r, err := join.Join(discoveryUrl, name, initialAdvertisePeerUrls, clientPort)
+				ok = false
+				for _, s := range strategies {
+					if s == join.Strategy(joinStrategy) {
+						ok = true
+						break
+					}
+				}
+				if !ok {
+					fmt.Fprintf(os.Stderr, "invalid join strategy %q\n", joinStrategy)
+					os.Exit(1)
+				}
+
+				if dataDir == "" {
+					dataDir = name + ".etcd"
+				}
+				fresh := !fileutil.Exist(dataDir)
+
+				jr, err := join.Join(
+					discoveryUrl,
+					name,
+					initialAdvertisePeerUrls,
+					fresh,
+					clientPort,
+					join.Strategy(joinStrategy),
+				)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "cluster join failed: %v\n", err)
 					os.Exit(1)
 				}
+				r := &Result{*jr, dataDir}
 				switch format {
 				case "flags":
 					printFlags(r)
