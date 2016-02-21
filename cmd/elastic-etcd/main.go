@@ -90,7 +90,12 @@ func Run(args []string) (*EtcdConfig, string, error) {
 	)
 
 	var formats = []string{"env", "dropin", "flags"}
-	var strategies = []join.Strategy{join.PreparedStrategy, join.ReplaceStrategy, join.PruneStrategy, join.AddStrategy}
+	var strategies = []string{
+		string(join.PreparedStrategy),
+		string(join.ReplaceStrategy),
+		string(join.PruneStrategy),
+		string(join.AddStrategy),
+	}
 
 	checkFlags := func() error {
 		if name == "" {
@@ -126,7 +131,7 @@ func Run(args []string) (*EtcdConfig, string, error) {
 
 		ok = false
 		for _, s := range strategies {
-			if s == join.Strategy(joinStrategy) {
+			if s == joinStrategy {
 				ok = true
 				break
 			}
@@ -153,7 +158,7 @@ func Run(args []string) (*EtcdConfig, string, error) {
 		},
 		cli.StringFlag{
 			Name:        "join-strategy",
-			Usage:       "the strategy to join: dumb, replace, add",
+			Usage:       "the strategy to join: " + strings.Join(strategies, ", "),
 			EnvVar:      "ETCD_JOIN_STRATEGY",
 			Value:       string(join.ReplaceStrategy),
 			Destination: &joinStrategy,
