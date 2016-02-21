@@ -159,36 +159,39 @@ func discoveryValue(ctx context.Context, baseUrl, key string) (*store.Event, err
 	return &res, nil
 }
 
-func deleteDiscoveryMachine(ctx context.Context, baseUrl, id string) error {
+func deleteDiscoveryMachine(ctx context.Context, baseUrl, id string) (bool, error) {
 	ctx, _ = context.WithTimeout(ctx, DiscoveryTimeout)
 
 	url := baseUrl + "/" + strings.TrimLeft(id, "/")
 	req, err := http.NewRequest("DELETE", url, strings.NewReader(""))
 	if err != nil {
-		return err
+		return false, err
 	}
 	resp, err := ctxhttp.Do(ctx, http.DefaultClient, req)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return false, nil
+	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
-		return fmt.Errorf("status code %d on DELETE for %q: %s", resp.StatusCode, url, body)
+		return false, fmt.Errorf("status code %d on DELETE for %q: %s", resp.StatusCode, url, body)
 	}
 
-	return nil
+	return true, nil
 }
 
 func Join(
-	url, name, initialAdvertisePeerUrls string,
+	discoveryUrl, name, initialAdvertisePeerUrls string,
 	fresh bool,
 	clientPort, clusterSize int,
 	strategy Strategy,
 ) (*Result, error) {
 	ctx := context.Background()
 
-	res, err := discoveryValue(ctx, url, "/")
+	res, err := discoveryValue(ctx, discoveryUrl, "/")
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +209,7 @@ func Join(
 	}
 
 	if clusterSize < 0 {
-		res, err = discoveryValue(ctx, url, "/_config/size")
+		res, err = discoveryValue(ctx, discoveryUrl, "/_config/size")
 		if err != nil {
 			return nil, fmt.Errorf("cannot get discovery url cluster size: %v", err)
 		}
@@ -255,6 +258,7 @@ func Join(
 				strategy,
 				clientPort,
 				clusterSize,
+				discoveryUrl,
 			)
 			if err != nil {
 				return nil, err
@@ -279,7 +283,7 @@ func Join(
 	} else {
 		return &Result{
 			InitialClusterState: "new",
-			Discovery:           url,
+			Discovery:           discoveryUrl,
 			AdvertisePeerUrls:   initialAdvertisePeerUrls,
 			Name:                name,
 		}, nil

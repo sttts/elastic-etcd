@@ -11,11 +11,12 @@ import (
 )
 
 type MemberAdder struct {
-	mapi        client.MembersAPI
-	activeNodes []node.DiscoveryNode
-	strategy    Strategy
-	clientPort  int
-	targetSize  int
+	mapi         client.MembersAPI
+	activeNodes  []node.DiscoveryNode
+	strategy     Strategy
+	clientPort   int
+	targetSize   int
+	discoveryUrl string
 }
 
 func NewMemberAdder(
@@ -23,6 +24,7 @@ func NewMemberAdder(
 	strategy Strategy,
 	clientPort int,
 	targetSize int,
+	discoveryUrl string,
 ) (*MemberAdder, error) {
 	activeUrls := make([]string, 0, len(activeNodes))
 	for _, an := range activeNodes {
@@ -39,11 +41,12 @@ func NewMemberAdder(
 	}
 
 	return &MemberAdder{
-		mapi:        client.NewMembersAPI(c),
-		activeNodes: activeNodes,
-		strategy:    strategy,
-		clientPort:  clientPort,
-		targetSize:  targetSize,
+		mapi:         client.NewMembersAPI(c),
+		activeNodes:  activeNodes,
+		strategy:     strategy,
+		clientPort:   clientPort,
+		targetSize:   targetSize,
+		discoveryUrl: discoveryUrl,
 	}, nil
 }
 
@@ -106,12 +109,20 @@ searchForDead:
 			}
 		}
 
-		glog.Infof("Trying to remove dead member %s=%q", m.Name, m.PeerURLs)
+		glog.V(4).Infof("Trying to remove dead member %s=%v", m.Name, m.PeerURLs)
 		err := ma.mapi.Remove(ctx, m.ID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("couldn't remove dead member %s=%v: %v", m.Name, m.PeerURLs, err)
 		}
 		glog.Infof("Removed dead member %s=%q", m.Name, m.PeerURLs)
+
+		glog.V(4).Infof("Trying to remove dead member %s=%v from discovery url %v", m.Name, m.PeerURLs, ma.discoveryUrl)
+		found, err := deleteDiscoveryMachine(ctx, ma.discoveryUrl, m.ID)
+		if !found {
+			glog.V(2).Infof("Dead member %s=%q not found in discovery url %v", m.Name, m.PeerURLs, ma.discoveryUrl)
+		} else {
+			glog.Infof("Dead member %s=%q removed from discovery url %v", m.Name, m.PeerURLs, ma.discoveryUrl)
+		}
 
 		break
 	}
