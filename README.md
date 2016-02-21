@@ -21,20 +21,46 @@ The elastic-etcd binary – in its current incarnation – is called with a subs
 Depending on the context where elastic-etcd is used, it can print out either etcd flags, a systemd dropin or shell environment variables:
 
 - `elastic-etcd -o flags ...` prints `-name=server1 -initial-cluster-state=new...`.
+
+  This allows to embed the elastic-etcd output directly into the command line of etcd using command substituion:
+  
+  ```bash
+  $ export DISCOVERY_URL=$(curl -s 'https://discovery.etcd.io/new?size=3')
+  $ etcd2 \
+       $(elastic-etcd -v=6 -logtostderr -discovery=$DISCOVERY_URL -o flags \
+                      -name=master2 -client-port=2379 \
+                      -initial-advertise-peer-urls=http://1.2.3.4:2380 \
+       ) \     
+       -listen-peer-urls=http://1.2.3.4:2480 \
+       -listen-client-urls=http://1.2.3.4:2379 \
+       -advertise-client-urls=http://1.2.3.4:2379
+   ```
+
 - `elastic-etcd -o dropin ...` prints
-```
-[service]
-Environment="ETCD_NAME=server1"
-Environment="ETCD_INITIAL_CLUSTER_STATE=new"
-...
-```
+   ```
+   [service]
+   Environment="ETCD_NAME=server1"
+   Environment="ETCD_INITIAL_CLUSTER_STATE=new"
+   ...
+   ```
 
 - `elastic-etcd -o env ...` prints
-```bash
-ETCD_NAME=server1
-ETCD_INITIAL_CLUSTER_STATE=new
-...
-```
+   ```bash
+   ETCD_NAME=server1
+   ETCD_INITIAL_CLUSTER_STATE=new
+   ...
+   ```
+   
+   This allows to call etcd in the following way:
+   ```bash
+   $ eval $(elastic-etcd -v=6 -logtostderr -discovery=$DISCOVERY_URL -o flags \
+                   -name=master2 -client-port=2379 \
+                   -initial-advertise-peer-urls=http://1.2.3.4:2380 \
+     )
+   $ etcd2 -listen-peer-urls=http://1.2.3.4:2480 \
+           -listen-client-urls=http://1.2.3.4:2379 \
+           -advertise-client-urls=http://1.2.3.4:2379
+   ```
 
 ## Command Line Help
 
@@ -56,7 +82,7 @@ GLOBAL OPTIONS:
    --cluster-size "-1"        the maximum etcd cluster size, default: size value of
                               discovery url, 0 for infinit [$ETCD_CLUSTER_SIZE]
 
-   --discovery-url            a etcd discovery url [$ELASTIC_ETCD_DISCOVERY]
+   --discovery                a etcd discovery url [$ELASTIC_ETCD_DISCOVERY]
    --data-dir                 the etcd data directory [$ETCD_DATA_DIR]
    --name                     the cluster-unique node name [$ETCD_NAME]
    --initial-advertise-peer-urls "http://localhost:2380"  the advertised peer urls
