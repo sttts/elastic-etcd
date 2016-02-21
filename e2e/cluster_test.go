@@ -59,7 +59,7 @@ func (c *elasticEtcdProcessConfig) etcdProcessConfig() (*etcdProcessConfig, erro
 	// run elastic-etcd
 	args := []string{
 		"elastic-etcd",
-		"-discovery-url=" + c.discoveryURL,
+		"-discovery=" + c.discoveryURL,
 		"-o=flags",
 		"--initial-advertise-peer-urls", peerURL,
 		fmt.Sprintf("-name=%d", c.num),
