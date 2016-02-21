@@ -173,8 +173,6 @@ func (ma *memberAdder) Add(
 	name string,
 	urls []string,
 ) ([]string, error) {
-	ctx, _ = context.WithTimeout(ctx, etcdTimeout)
-
 	glog.V(4).Info("Getting cluster members")
 	ms, err := ma.mapi.List(ctx)
 	if err != nil {
