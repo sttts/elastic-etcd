@@ -21,8 +21,8 @@ import (
 type Strategy string
 
 const (
-	livenessTimeout = time.Second * 5
-	etcdTimeout     = time.Second * 5
+	livenessTimeout = time.Second * 10
+	etcdTimeout     = time.Second * 30
 
 	// PreparedStrategy assumes that the admin prepares new member entries.
 	PreparedStrategy = Strategy("prepared")
