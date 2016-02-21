@@ -14,6 +14,17 @@ The elastic-etcd binary experiments with those advanced member management heuris
 
 The elastic-etcd binary – in its current incarnation – is called with a subset of the etcd parameters. It does its jobs using the etcd [discovery service](https://coreos.com/os/docs/latest/cluster-discovery.html) and then prints out the matching etcd configuration.
 
+## How To Build
+
+```bash
+$ export GOPATH=$PWD
+$ mkdir -p pkg src bin
+$ go get github.com/sttts/elastic-etcd
+$ cd src/github.com/sttts/elastic-etcd
+$ make build
+$ ./elastic-etcd --help
+```
+
 ## Output Format
 
 Depending on the context where elastic-etcd is used, it can print out either etcd flags, a systemd dropin or shell environment variables:
