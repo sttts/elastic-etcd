@@ -26,11 +26,12 @@ Depending on the context where elastic-etcd is used, it can print out either etc
   
   ```bash
   $ export DISCOVERY_URL=$(curl -s 'https://discovery.etcd.io/new?size=3')
-  $ etcd2 \
-       $(elastic-etcd -v=6 -logtostderr -discovery=$DISCOVERY_URL -o flags \
-                      -name=master2 -client-port=2379 \
-                      -initial-advertise-peer-urls=http://1.2.3.4:2380 \
-       ) \     
+  $ set -e
+  $ ELASTIC_PARAMS=$(elastic-etcd -v=6 -logtostderr -o flags
+      -discovery=$DISCOVERY_URL -name=master2 -client-port=2379 \
+      -initial-advertise-peer-urls=http://1.2.3.4:2380 \
+    )
+  $ etcd2 $ELASTIC_PARAMS \     
        -listen-peer-urls=http://1.2.3.4:2480 \
        -listen-client-urls=http://1.2.3.4:2379 \
        -advertise-client-urls=http://1.2.3.4:2379
