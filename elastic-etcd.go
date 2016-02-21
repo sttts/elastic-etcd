@@ -46,7 +46,7 @@ func printDropin(r *Result) {
 	}
 }
 
-func printFlags(r *Result) {
+func (r *Result) Flags() []string {
 	args := []string{}
 	if r.InitialClusterState != "" {
 		args = append(args, fmt.Sprintf("-initial-cluster-state=%s", r.InitialClusterState))
@@ -64,9 +64,12 @@ func printFlags(r *Result) {
 	args = append(args, fmt.Sprintf("-name=%s", r.Name))
 	args = append(args, fmt.Sprintf("-data-dir=%s", r.DataDir))
 
-	params := strings.Join(args, " ")
+	glog.V(4).Infof("Derived etcd parameter: %v", args)
+	return args
+}
 
-	glog.V(4).Infof("Derived etcd parameter: %s", params)
+func printFlags(r *Result) {
+	params := strings.Join(r.Flags(), " ")
 	fmt.Fprintln(os.Stdout, params)
 }
 
@@ -202,6 +205,8 @@ func Run(args []string) (*Result, string, error) {
 	var actionErr error
 	var actionResult *Result
 	app.Action = func(c *cli.Context) {
+		glog.V(6).Infof("flags: %v", args)
+
 		err := checkFlags()
 		if err != nil {
 			actionErr = err
