@@ -234,7 +234,7 @@ func Run(args []string) (*EtcdConfig, string, error) {
 				actionErr = err
 				return
 			}
-			glog.V(6).Info("Found the following files in %s: %v", dataDir, fs)
+			glog.V(6).Infof("Found the following files in %s: %v", dataDir, fs)
 			fresh = len(fs) <= 2
 		}
 
