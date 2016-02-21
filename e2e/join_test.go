@@ -1,13 +1,13 @@
 package e2e
 
 import (
+	"os"
 	"testing"
 
 	"github.com/coreos/etcd/client"
 	"github.com/pborman/uuid"
 	"github.com/sttts/elastic-etcd/join"
 	"golang.org/x/net/context"
-	"os"
 )
 
 func smokeTest(t *testing.T, epc *etcdProcessCluster) {

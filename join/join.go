@@ -34,7 +34,7 @@ const (
 	AddStrategy      = Strategy("add")
 
 	maxUint = ^uint(0)
-	maxInt = int(maxUint >> 1)
+	maxInt  = int(maxUint >> 1)
 )
 
 type Result struct {
@@ -213,7 +213,7 @@ func Join(
 
 		size, _ := strconv.ParseInt(*res.Node.Value, 10, 16)
 		clusterSize = int(size)
-		
+
 		glog.V(2).Infof("Got a target cluster size of %d from the discovery url", clusterSize)
 	} else if clusterSize == 0 {
 		clusterSize = maxInt

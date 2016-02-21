@@ -6,13 +6,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/coreos/gexpect"
 	"github.com/fatih/color"
-	elastic "github.com/sttts/elastic-etcd"
+	elastic "github.com/sttts/elastic-etcd/cmd/elastic-etcd"
 )
 
 type etcdProcessCluster struct {
@@ -131,7 +133,7 @@ func (etcdp *etcdProcess) logAndFind(readyStr string) error {
 	i := int64(etcdp.cfg.cfg.num)
 	lineColor := color.New(color.Attribute(int64(color.FgRed) + i))
 	lineColor.EnableColor()
-	printLine := lineColor.SprintfFunc()
+	scolorizef := lineColor.SprintfFunc()
 
 	for {
 		l, err := etcdp.proc.ReadLine()
@@ -140,7 +142,7 @@ func (etcdp *etcdProcess) logAndFind(readyStr string) error {
 			return err
 		}
 
-		log.Print(printLine("%d: %s", etcdp.cfg.cfg.num, l))
+		log.Print(scolorizef("%d: %s", etcdp.cfg.cfg.num, l))
 
 		if matched, err := regexp.MatchString(readyStr, l); err != nil || !matched {
 			continue
@@ -154,7 +156,7 @@ func (etcdp *etcdProcess) logAndFind(readyStr string) error {
 					close(etcdp.donec)
 					break
 				}
-				log.Printf("%d: %s", etcdp.cfg.cfg.num, l)
+				log.Print(scolorizef("%d: %s", etcdp.cfg.cfg.num, l))
 			}
 		}()
 
@@ -163,12 +165,14 @@ func (etcdp *etcdProcess) logAndFind(readyStr string) error {
 }
 
 func (etcdp *etcdProcess) waitForLaunch() error {
-	readyStr := "etcdserver: set the initial cluster version to"
-	if etcdp.cfg.isProxy {
-		// rs = "proxy: listening for client requests on"
-		readyStr = "proxy: endpoints found"
+	readyStr := "(etcdserver: set the initial cluster version to|became follower at term)"
+	err := etcdp.logAndFind(readyStr)
+	if err != nil {
+		return err
 	}
-	return etcdp.logAndFind(readyStr)
+
+	log.Printf("instance %d launched", etcdp.cfg.cfg.num)
+	return nil
 }
 
 func newElasticEtcdProcessCluster(
@@ -213,10 +217,13 @@ func newElasticEtcdProcessCluster(
 }
 
 func newEtcdProcess(cfg *etcdProcessConfig) (*etcdProcess, error) {
-	if fileutil.Exist("../bin/etcd") == false {
-		return nil, fmt.Errorf("could not find etcd binary")
+	_, filename, _, _ := runtime.Caller(1)
+	etcd := path.Join(path.Dir(filename), "../../../../../bin/etcd")
+
+	if fileutil.Exist(etcd) == false {
+		return nil, fmt.Errorf("could not find etcd binary at %s", etcd)
 	}
-	child, err := spawnCmd(append([]string{"../bin/etcd"}, cfg.args...))
+	child, err := spawnCmd(append([]string{etcd}, cfg.args...))
 	if err != nil {
 		return nil, err
 	}
