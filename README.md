@@ -71,7 +71,7 @@ GLOBAL OPTIONS:
 ```
 
 The first block of flags is used to control the elastic-etcd algorithm:
-- `-o`: compare above
+- `-o`: compare [above](#output-format)
 - `--join-strategy`: can be one of prepared, replace, prune, add:
   - **prepare**: assumes that the admin prepares new member entries
   - **add**: only adds a member until the cluster is full, never removes old members
