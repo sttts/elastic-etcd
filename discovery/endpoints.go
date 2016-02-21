@@ -78,7 +78,7 @@ func Add(ctx context.Context, baseURL string, n *Machine) (bool, error) {
 
 	u := baseURL + "/" + n.ID
 	value := strings.Join(n.NamedPeerURLs(), ",")
-	var data url.Values
+	data := url.Values{}
 	data.Set("value", value)
 
 	req, err := http.NewRequest("PUT", u, strings.NewReader(data.Encode()))
