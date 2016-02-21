@@ -73,9 +73,9 @@ GLOBAL OPTIONS:
 The first flags are used to control the elastic-etcd algorithm:
 - `-o`: compare above
 - `--join-strategy`: can be one of prepared, replace, prune, add:
-  - *prepare*: assumes that the admin prepares new member entries
-  - *add*: only adds a member until the cluster is full, never removes old members
-  - *replace* (default): defensively removes a dead member only when a cluster is full
-  - *prune*: aggressively removes dead members.
+  - **prepare**: assumes that the admin prepares new member entries
+  - **add**: only adds a member until the cluster is full, never removes old members
+  - **replace** (default): defensively removes a dead member only when a cluster is full
+  - **prune**: aggressively removes dead members.
 - `--client-port`: for health checking using the entries in the discovery service url this port is used. At the discovery time there is no client url known, only peer urls. To get the current cluster state a client url is necessary though. This of course only works if all client urls of the cluster members use the same port.
 - `--cluster-size`: by default the discovery url cluster size is used to limit addition of new members. Using `--cluster-size` this can be overridden.
