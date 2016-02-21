@@ -70,7 +70,7 @@ GLOBAL OPTIONS:
    --help, -h                 show help
 ```
 
-The first flags are used to control the elastic-etcd algorithm:
+The first block of flags is used to control the elastic-etcd algorithm:
 - `-o`: compare above
 - `--join-strategy`: can be one of prepared, replace, prune, add:
   - **prepare**: assumes that the admin prepares new member entries
@@ -79,3 +79,20 @@ The first flags are used to control the elastic-etcd algorithm:
   - **prune**: aggressively removes dead members.
 - `--client-port`: for health checking using the entries in the discovery service url this port is used. At the discovery time there is no client url known, only peer urls. To get the current cluster state a client url is necessary though. This of course only works if all client urls of the cluster members use the same port.
 - `--cluster-size`: by default the discovery url cluster size is used to limit addition of new members. Using `--cluster-size` this can be overridden.
+
+The second block of flags have the same meaning as for etcd. Though, the elastic-etcd algorithm might decide to change the values of those flags and pass them to etcd (via one of the output modes).
+
+# Join Strategies
+
+For experimentation the elastic-etcd algorithm supports a number of join strategies (compare flag description above). In the following these are discussed:
+
+The **prepare** strategy resembles the default behavior of etcd. In this mode, the admin has to remove old member and add a new entry *before* the new etcd instance actually starts up.
+
+The **add** strategy is also similar to the default behavior of etcd, but adds the capability for a new etcd instance to join an existing cluster, as long as the cluster is below the given `--cluster-size` size.
+
+The **replace** strategy is probably the right mix between old consertive behavior and the needs for a dynamic cloud environment where IPs come and go when machines are replaced. It will behave like the **add** behavior, but in addition it will health check all cluster member and eventually remove one dead member. This removal is only done when the cluster would be full otherwise. I.e. during cluster growth (e.g. when the user passes `--cluster-size` long after bootstrapping) this strategy behaves conservatively without removal of any member.
+
+Finally the **prune** strategy is like **replace**, but it will always remove every dead member before adding the new instance.
+
+In all of the last three strategies a quorum calculation is done to protect the cluster from putting the quorum at risk when a new instance joins: *If a quorum is put at risk when a new instance fails to startup, the whole join process is stopped before even trying to join*.
+
