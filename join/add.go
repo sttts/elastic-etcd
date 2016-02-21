@@ -75,17 +75,18 @@ findUnstartedMember:
 	return nil
 }
 
-func (ma *MemberAdder) removeDeadMember(
+func (ma *MemberAdder) removeDeadMembersN(
 	ctx context.Context,
 	members []client.Member,
-) (*client.Member, error) {
-	var selected *client.Member
+	maxNum int,
+) ([]*client.Member, error) {
+	deleted := []*client.Member{}
 searchForDead:
 	for _, m := range members {
-		if len(m.PeerURLs) == 0 {
-			selected = &m
+		if len(deleted) >= maxNum {
 			break
 		}
+
 		for _, u := range m.PeerURLs {
 			n, err := node.NewDiscoveryNode(fmt.Sprintf("%s=%s", m.Name, u), ma.clientPort)
 			if err != nil {
@@ -104,22 +105,18 @@ searchForDead:
 				}
 			}
 		}
-		selected = &m
+
+		glog.Infof("Trying to remove dead member %s=%q", m.Name, m.PeerURLs)
+		err := ma.mapi.Remove(ctx, m.ID)
+		if err != nil {
+			return nil, err
+		}
+		glog.Infof("Removed dead member %s=%q", m.Name, m.PeerURLs)
+
 		break
 	}
 
-	if selected == nil {
-		return nil, errors.New("did not find any dead member")
-	}
-
-	// remove the selected
-	glog.Infof("Trying to remove dead member %s=%q", selected.Name, selected.PeerURLs)
-	err := ma.mapi.Remove(ctx, selected.ID)
-	if err != nil {
-		return nil, err
-	}
-	glog.Infof("Removed dead member %s=%q", selected.Name, selected.PeerURLs)
-	return selected, nil
+	return deleted, nil
 }
 
 func (ma *MemberAdder) protectCluster(ctx context.Context) error {
@@ -182,27 +179,21 @@ func (ma *MemberAdder) Add(
 
 	switch ma.strategy {
 	case ReplaceStrategy:
-		removed, err := ma.removeDeadMember(ctx, ms)
-		if err != nil {
-			return nil, err
-		}
-		if removed == nil {
-			glog.Infof("Did not find a dead member to remove")
-			if len(ms) >= ma.targetSize {
+		if len(ms) >= ma.targetSize {
+			removed, err := ma.removeDeadMembersN(ctx, ms, 1)
+			if err != nil {
+				return nil, err
+			}
+			if len(removed) == 0 {
 				return nil, errors.New("full cluster and no dead member")
 			}
+		} else {
 			glog.Infof("Cluster not full with %d member our of %d. Going ahead with adding.", len(ms), ma.targetSize)
 		}
 	case PruneStrategy:
-		for {
-			removed, err := ma.removeDeadMember(ctx, ms)
-			if err != nil {
-				glog.Errorln(err)
-				break
-			}
-			if removed == nil {
-				break
-			}
+		_, err := ma.removeDeadMembersN(ctx, ms, len(ms))
+		if err != nil {
+			return nil, err
 		}
 	}
 
