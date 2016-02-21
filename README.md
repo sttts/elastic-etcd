@@ -43,6 +43,34 @@ Depending on the context where elastic-etcd is used, it can print out either etc
    Environment="ETCD_INITIAL_CLUSTER_STATE=new"
    ...
    ```
+   
+   This allows to call elastic-etcd in the following way, here from the CoreOS cloud-config:
+   
+    ```yaml
+    coreos:
+      etcd2:
+        name: $private_ipv4
+        advertise-client-urls: http://$private_ipv4:2379,http://$private_ipv4:4001
+        listen-client-urls: http://$private_ipv4:2379,http://$private_ipv4:4001,http://127.0.0.1:2379,http://127.0.0.1:4001
+        listen-peer-urls: http://$private_ipv4:2380
+    
+      units:
+        - name: elastic-etcd.service
+          command: start
+          content: |
+            [Unit]
+            Description=Elastic etcd
+            Before=etcd2.service
+    
+            [Service]
+            Type=oneshot
+            ExecStartPre=/usr/bin/mkdir -p /var/lib/elastic-etcd
+            ExecStartPre=/usr/bin/curl -L -o /var/lib/elastic-etcd/elastic-etcd https://github.com/sttts/elastic-etcd/releases/download/v0.0.7/elastic-etcd
+            ExecStartPre=/usr/bin/chmod +x /var/lib/elastic-etcd/elastic-etcd
+            ExecStartPre=/usr/bin/mkdir -p /run/systemd/system/etcd2.service.d
+            ExecStart=/bin/sh -c "/var/lib/elastic-etcd/elastic-etcd -o dropin -data-dir=/var/lib/etcd2 -initial-advertise-peer-urls=http://$private_ipv4:2380 -name=$private_ipv4 -discovery={{.DiscoveryURL}} -v=6 -logtostderr > /run/systemd/system/etcd2.service.d/99-elastic-etcd.conf"
+            ExecStartPost=/usr/bin/systemctl daemon-reload
+    ```
 
 - `elastic-etcd -o env ...` prints
    ```bash
