@@ -105,16 +105,16 @@ COMMANDS:
 GLOBAL OPTIONS:
    -o "env"                   the output format out of: env, dropin, flags
    --join-strategy "replace"  the strategy to join: dumb, replace, add
-                              [$ETCD_JOIN_STRATEGY]
-   --client-port "2379"       the etcd client port of all peers [$ETCD_CLIENT_PORT]
+                              [$ELASTIC_ETCD_JOIN_STRATEGY]
+   --client-port "2379"       the etcd client port of all peers [$ELASTIC_ETCD_CLIENT_PORT]
    --cluster-size "-1"        the maximum etcd cluster size, default: size value of
-                              discovery url, 0 for infinit [$ETCD_CLUSTER_SIZE]
+                              discovery url, 0 for infinit [$ELASTIC_ETCD_CLUSTER_SIZE]
 
    --discovery                a etcd discovery url [$ELASTIC_ETCD_DISCOVERY]
-   --data-dir                 the etcd data directory [$ETCD_DATA_DIR]
-   --name                     the cluster-unique node name [$ETCD_NAME]
+   --data-dir                 the etcd data directory [$ELASTIC_ETCD_DATA_DIR]
+   --name                     the cluster-unique node name [$ELASTIC_ETCD_NAME]
    --initial-advertise-peer-urls "http://localhost:2380"  the advertised peer urls
-                              of this instance [$ETCD_INITIAL_ADVERTISE_PEER_URLS]
+                              of this instance [$ELASTIC_ETCD_INITIAL_ADVERTISE_PEER_URLS]
 
    --alsologtostderr=false    log to standard error as well as files
    --log_backtrace_at=:0      when logging hits line file:N, emit a stack trace
