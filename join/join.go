@@ -32,13 +32,13 @@ const (
 	// PreparedStrategy assumes that the admin prepares new member entries.
 	PreparedStrategy = Strategy("prepared")
 
-	// PruneStrategy aggressively remove dead members.
+	// PruneStrategy aggressively removes dead members.
 	PruneStrategy = Strategy("prune")
 
 	// ReplaceStrategy defensively removes a dead member only when a cluster is full.
 	ReplaceStrategy = Strategy("replace")
 
-	// AddStrategy only adds a member until the cluster is full, never removes old member.
+	// AddStrategy only adds a member until the cluster is full, never removes old members.
 	AddStrategy = Strategy("add")
 
 	maxUint = ^uint(0)
