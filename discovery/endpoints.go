@@ -92,10 +92,10 @@ func Add(ctx context.Context, baseURL string, n *Machine) (bool, error) {
 		return false, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode == http.StatusConflict {
+	if resp.StatusCode == http.StatusConflict || resp.StatusCode == http.StatusOK {
 		return false, nil
 	}
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusCreated {
 		body, _ := ioutil.ReadAll(resp.Body)
 		return false, fmt.Errorf("status code %d on PUT for %q: %s", resp.StatusCode, u, body)
 	}
