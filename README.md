@@ -38,7 +38,7 @@ Depending on the context where elastic-etcd is used, it can print out either etc
 
 - `elastic-etcd -o dropin ...` prints
    ```
-   [service]
+   [Service]
    Environment="ETCD_NAME=server1"
    Environment="ETCD_INITIAL_CLUSTER_STATE=new"
    ...
