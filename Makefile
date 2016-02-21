@@ -2,6 +2,7 @@ SHELL=/bin/bash
 CMD=elastic-etcd
 GOBUILD=go build
 REPOSITORY=sttts
+VERSION=$(shell git describe --always --tags --dirty)
 
 default: all
 
@@ -38,13 +39,18 @@ check: gofmt gometalinter
 clean:
 	rm -f $(CMD) docker/elastic-etcd
 
-.PHONY: docker/elastic-etcd
-docker/elastic-etcd:
-	cd docker && GOOS=linux go build github.com/sttts/elastic-etcd/cmd/elastic-etcd
+.PHONY: release/elastic-etcd
+release/elastic-etcd:
+	mkdir -p release
+	cd release && GOOS=linux go build github.com/sttts/elastic-etcd/cmd/elastic-etcd
+.PHONY: release
+release: release/elastic-etcd
+	go get github.com/aktau/github-release
+	github-release upload -u sttts --repo elastic-etcd --tag $(VERSION) --file release/elastic-etcd --name elastic-etcd
 
 .PHONY: docker
-docker: docker/elastic-etcd
-	docker build -t $(REPOSITORY)/elastic-etcd docker
+docker: release/elastic-etcd
+	docker build -t $(REPOSITORY)/elastic-etcd .
 
 push: docker
 	docker push $(REPOSITORY)/elastic-etcd

@@ -3,6 +3,6 @@ MAINTAINER Dr. Stefan Schimanski <stefan.schimanski@gmail.com>
 
 RUN apk add -U ca-certificates && rm -rf /var/cache/apk/*
 
-COPY elastic-etcd /elastic-etcd
+COPY release/elastic-etcd /elastic-etcd
 
 CMD ["/elastic-etcd", "--help"]
