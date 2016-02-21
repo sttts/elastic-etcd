@@ -51,12 +51,12 @@ Depending on the context where elastic-etcd is used, it can print out either etc
    ...
    ```
    
-   This allows to call etcd in the following way:
+   This allows to call elastic-etcd in the following way:
    ```bash
    $ eval $(elastic-etcd -v=6 -logtostderr -discovery=$DISCOVERY_URL -o flags \
                    -name=master2 -client-port=2379 \
                    -initial-advertise-peer-urls=http://1.2.3.4:2380 \
-     )
+      )
    $ etcd2 -listen-peer-urls=http://1.2.3.4:2480 \
            -listen-client-urls=http://1.2.3.4:2379 \
            -advertise-client-urls=http://1.2.3.4:2379
