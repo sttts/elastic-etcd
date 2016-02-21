@@ -239,11 +239,13 @@ func Join(
 	if err != nil {
 		return nil, err
 	}
+
 	if activeNodes != nil && len(activeNodes) == 0 {
 		// cluster down. Restarting nodes with the same config.
-
 		if fresh {
 			return nil, errors.New("Cluster is down. A new node cannot join now.")
+		} else {
+			glog.Infof("Existing cluster seems to be done. No healthy node found. Trying to resume cluster.")
 		}
 
 		return &EtcdConfig{
@@ -266,6 +268,8 @@ func Join(
 
 		initialNamedURLs := []string{advertisedNamedURLs[0]}
 		if strategy != PreparedStrategy && fresh {
+			glog.Infof("Existing cluster found. Trying to join with %q strategy.")
+
 			adder, err := newMemberAdder(
 				activeNodes,
 				strategy,
@@ -285,6 +289,8 @@ func Join(
 			for _, u := range initialURLs {
 				initialNamedURLs = append(initialNamedURLs, fmt.Sprintf("%s=%s", name, u))
 			}
+		} else {
+			glog.Infof("Existing cluster found. Trying to join without adding this instance as a member.")
 		}
 
 		return &EtcdConfig{
@@ -294,6 +300,8 @@ func Join(
 			Name:                name,
 		}, nil
 	} else {
+		glog.Infof("Trying to launch new cluster.")
+
 		return &EtcdConfig{
 			InitialClusterState: "new",
 			Discovery:           discoveryURL,
