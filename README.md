@@ -130,7 +130,7 @@ The **prepare** strategy resembles the default behavior of etcd. In this mode, t
 
 The **add** strategy is also similar to the default behavior of etcd, but adds the capability for a new etcd instance to join an existing cluster, as long as the cluster is below the given `--cluster-size` size.
 
-The **replace** strategy is probably the right mix between old consertive behavior and the needs for a dynamic cloud environment where IPs come and go when machines are replaced. It will behave like the **add** behavior, but in addition it will health check all cluster member and eventually remove one dead member. This removal is only done when the cluster would be full otherwise. I.e. during cluster growth (e.g. when the user passes `--cluster-size` long after bootstrapping) this strategy behaves conservatively without removal of any member.
+The **replace** strategy is probably the right mix between old conservative behavior and the needs of a dynamic cloud environment where IPs come and go when machines are replaced. It will behave like the **add** behavior, but in addition it will health check all cluster member and eventually remove one dead member. This removal is only done when the cluster would be full otherwise. I.e. during cluster growth (e.g. when the user passes `--cluster-size` long after bootstrapping) this strategy behaves conservatively without removal of any member.
 
 Finally the **prune** strategy is like **replace**, but it will always remove every dead member before adding the new instance.
 
