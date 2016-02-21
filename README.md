@@ -16,7 +16,7 @@ The elastic-etcd binary experiments with those advanced member management heuris
 
 The elastic-etcd binary – in its current incarnation – is called with a subset of the etcd parameters. It does its jobs using the etcd [discovery service](https://coreos.com/os/docs/latest/cluster-discovery.html) and then prints out the matching etcd configuration.
 
-## Output Format
+### Output Format
 
 Depending on the context where elastic-etcd is used, it can print out either etcd flags, a systemd dropin or shell environment variables:
 
@@ -62,7 +62,7 @@ Depending on the context where elastic-etcd is used, it can print out either etc
            -advertise-client-urls=http://1.2.3.4:2379
    ```
 
-## Command Line Help
+### Command Line Help
 
 ```
 NAME:
@@ -111,7 +111,7 @@ The first block of flags is used to control the elastic-etcd algorithm:
 
 The second block of flags have the same meaning as for etcd. Though, the elastic-etcd algorithm might decide to change the values of those flags and pass them to etcd (via one of the output modes).
 
-# How To Build
+## How To Build
 
 ```bash
 $ export GOPATH=$PWD
@@ -122,7 +122,7 @@ $ make build
 $ ./elastic-etcd --help
 ```
 
-# Join Strategies
+## Join Strategies
 
 For experimentation the elastic-etcd algorithm supports a number of join strategies (compare flag description above). In the following these are discussed:
 
