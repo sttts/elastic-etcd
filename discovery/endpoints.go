@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	discoveryTimeout = time.Second * 10
+	discoveryTimeout = time.Second * 30
 )
 
 // Value reads a value from a discovery url.
