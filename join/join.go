@@ -100,6 +100,7 @@ func clusterExistingHeuristic(
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(nodes))
+	lock := sync.Mutex{}
 	activeNodes := make([]node.DiscoveryNode, 0, len(nodes))
 	for _, n := range nodes {
 		go func(n node.DiscoveryNode) {
@@ -116,6 +117,8 @@ func clusterExistingHeuristic(
 				return
 			}
 			glog.Infof("Node %s looks alive and active in a cluster", n.NamedPeerURLs())
+			lock.Lock()
+			defer lock.Unlock()
 			activeNodes = append(activeNodes, n)
 		}(n)
 	}
