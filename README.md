@@ -164,3 +164,10 @@ Finally the **prune** strategy is like **replace**, but it will always remove ev
 
 In all of the last three strategies a quorum calculation is done to protect the cluster from putting the quorum at risk when a new instance joins: *If a quorum is put at risk when a new instance fails to startup, the whole join process is stopped before even trying to join*.
 
+## Credits
+
+This work is inspired by
+
+- Johannes Ziemke's [CloudFormation driven Consul in AutoScalingGroup](https://5pi.de/2015/04/27/cloudformation-driven-consul-in-autoscalinggroup/)
+- T.J. Corrigan's [etcd Clustering in AWS –
+Configuring a robust etcd cluster in an AWS Auto Scaling Group](http://engineering.monsanto.com/2015/06/12/etcd-clustering/).
