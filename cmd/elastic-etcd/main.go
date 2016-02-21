@@ -228,7 +228,8 @@ func Run(args []string) (*EtcdConfig, string, error) {
 		}
 		fresh := true
 		if fileutil.Exist(dataDir) {
-			fs, err := fileutil.ReadDir(dataDir)
+			var fs []string
+			fs, err = fileutil.ReadDir(dataDir)
 			if err != nil {
 				actionErr = err
 				return

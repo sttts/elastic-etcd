@@ -7,12 +7,12 @@ import (
 	"github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
 	"github.com/coreos/etcd/client"
 	"github.com/golang/glog"
-	"github.com/sttts/elastic-etcd/node"
+	"github.com/sttts/elastic-etcd/discovery"
 )
 
 type memberAdder struct {
 	mapi         client.MembersAPI
-	activeNodes  []node.DiscoveryNode
+	activeNodes  []discovery.Machine
 	strategy     Strategy
 	clientPort   int
 	targetSize   int
@@ -20,7 +20,7 @@ type memberAdder struct {
 }
 
 func newMemberAdder(
-	activeNodes []node.DiscoveryNode,
+	activeNodes []discovery.Machine,
 	strategy Strategy,
 	clientPort int,
 	targetSize int,
@@ -91,7 +91,7 @@ searchForDead:
 		}
 
 		for _, u := range m.PeerURLs {
-			n, err := node.NewDiscoveryNode(fmt.Sprintf("%s=%s", m.Name, u), ma.clientPort)
+			n, err := discovery.NewDiscoveryNode(fmt.Sprintf("%s=%s", m.Name, u), ma.clientPort)
 			if err != nil {
 				glog.Warningf("Invalid peer URL %s in member %s found", u, m.Name)
 				continue searchForDead
@@ -117,7 +117,7 @@ searchForDead:
 		glog.Infof("Removed dead member %s=%q", m.Name, m.PeerURLs)
 
 		glog.V(4).Infof("Trying to remove dead member %s=%v from discovery url %v", m.Name, m.PeerURLs, ma.discoveryURL)
-		found, err := deleteDiscoveryMachine(ctx, ma.discoveryURL, m.ID)
+		found, err := discovery.Delete(ctx, ma.discoveryURL, m.ID)
 		if err != nil {
 			return nil, fmt.Errorf("could remove dead member %s=%v from discovery url %v: %v", m.Name, m.PeerURLs, ma.discoveryURL, err)
 		}
@@ -127,6 +127,7 @@ searchForDead:
 			glog.Infof("Dead member %s=%q removed from discovery url %v", m.Name, m.PeerURLs, ma.discoveryURL)
 		}
 
+		deleted = append(deleted, &m)
 		break
 	}
 
@@ -220,11 +221,24 @@ func (ma *memberAdder) Add(
 	// one is stated in the initial-cluster parameter. That one will be used to compute the
 	// member id.
 	glog.V(4).Infof("Trying to add member with peer url %s", urls[0])
-	_, err = ma.mapi.Add(ctx, urls[0])
+	m, err := ma.mapi.Add(ctx, urls[0])
 	if err != nil {
 		return nil, err
 	}
 	glog.Infof("Added member with peer url %s", urls[0])
+
+	added, err := discovery.Add(ctx, ma.discoveryURL, &discovery.Machine{
+		Member: client.Member{
+			ID:       m.ID,
+			PeerURLs: urls,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if added {
+		glog.Infof("Added %s=%v to discovery url %s", m.ID, urls, ma.discoveryURL)
+	}
 
 	return []string{urls[0]}, nil
 }

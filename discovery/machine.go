@@ -1,4 +1,4 @@
-package node
+package discovery
 
 import (
 	"fmt"
@@ -7,15 +7,15 @@ import (
 	"github.com/coreos/etcd/client"
 )
 
-// DiscoveryNode represents a cluster member extracted from a discovery url.
-type DiscoveryNode struct {
+// Machine represents a cluster member extracted from a discovery url.
+type Machine struct {
 	client.Member
 }
 
-// NewDiscoveryNode parses a discovery URL machine value into a DiscoveryNode.
-func NewDiscoveryNode(namedPeerURLs string, clientPort int) (*DiscoveryNode, error) {
+// NewDiscoveryNode parses a discovery URL machine value into a Machine.
+func NewDiscoveryNode(namedPeerURLs string, clientPort int) (*Machine, error) {
 	urls := strings.Split(namedPeerURLs, ",")
-	n := DiscoveryNode{
+	n := Machine{
 		Member: client.Member{
 			PeerURLs:   make([]string, 0, len(urls)),
 			ClientURLs: make([]string, 0, len(urls)),
@@ -35,8 +35,8 @@ func NewDiscoveryNode(namedPeerURLs string, clientPort int) (*DiscoveryNode, err
 	return &n, nil
 }
 
-// NamedPeerURLs returnes a slace of name=http://domain:port values for a DiscoveryNode.
-func (n *DiscoveryNode) NamedPeerURLs() []string {
+// NamedPeerURLs returnes a slace of name=http://domain:port values for a Machine.
+func (n *Machine) NamedPeerURLs() []string {
 	us := make([]string, 0, len(n.PeerURLs))
 	for _, u := range n.PeerURLs {
 		us = append(us, fmt.Sprintf("%s=%s", n.Name, u))
