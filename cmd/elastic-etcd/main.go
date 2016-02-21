@@ -226,7 +226,16 @@ func Run(args []string) (*EtcdConfig, string, error) {
 		if dataDir == "" {
 			dataDir = name + ".etcd"
 		}
-		fresh := !fileutil.Exist(dataDir)
+		fresh := true
+		if fileutil.Exist(dataDir) {
+			fs, err := fileutil.ReadDir(dataDir)
+			if err != nil {
+				actionErr = err
+				return
+			}
+			glog.V(6).Info("Found the following files in %s: %v", dataDir, fs)
+			fresh = len(fs) <= 2
+		}
 
 		jr, err := join.Join(
 			discoveryURL,
