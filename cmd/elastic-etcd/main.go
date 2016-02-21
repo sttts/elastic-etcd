@@ -150,7 +150,7 @@ func Run(args []string) (*EtcdConfig, string, error) {
 	app.Version = ""
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:        "discovery-url",
+			Name:        "discovery",
 			Value:       "",
 			Usage:       "a etcd discovery url",
 			Destination: &discoveryURL,
@@ -159,14 +159,14 @@ func Run(args []string) (*EtcdConfig, string, error) {
 		cli.StringFlag{
 			Name:        "join-strategy",
 			Usage:       "the strategy to join: " + strings.Join(strategies, ", "),
-			EnvVar:      "ETCD_JOIN_STRATEGY",
+			EnvVar:      "ELASTIC_ETCD_JOIN_STRATEGY",
 			Value:       string(join.ReplaceStrategy),
 			Destination: &joinStrategy,
 		},
 		cli.StringFlag{
 			Name:        "data-dir",
 			Usage:       "the etcd data directory",
-			EnvVar:      "ETCD_DATA_DIR",
+			EnvVar:      "ELASTIC_ETCD_DATA_DIR",
 			Value:       "",
 			Destination: &dataDir,
 		},
@@ -179,28 +179,28 @@ func Run(args []string) (*EtcdConfig, string, error) {
 		cli.StringFlag{
 			Name:        "name",
 			Usage:       "the cluster-unique node name",
-			EnvVar:      "ETCD_NAME",
+			EnvVar:      "ELASTIC_ETCD_NAME",
 			Value:       "",
 			Destination: &name,
 		},
 		cli.IntFlag{
 			Name:        "client-port",
 			Usage:       "the etcd client port of all peers",
-			EnvVar:      "ETCD_CLIENT_PORT",
+			EnvVar:      "ELASTIC_ETCD_CLIENT_PORT",
 			Value:       2379,
 			Destination: &clientPort,
 		},
 		cli.IntFlag{
 			Name:        "cluster-size",
 			Usage:       "the maximum etcd cluster size, default: size value of discovery url, 0 for infinit",
-			EnvVar:      "ETCD_CLUSTER_SIZE",
+			EnvVar:      "ELASTIC_ETCD_CLUSTER_SIZE",
 			Value:       -1,
 			Destination: &clusterSize,
 		},
 		cli.StringFlag{
 			Name:        "initial-advertise-peer-urls",
 			Usage:       "the advertised peer urls of this instance",
-			EnvVar:      "ETCD_INITIAL_ADVERTISE_PEER_URLS",
+			EnvVar:      "ELASTIC_ETCD_INITIAL_ADVERTISE_PEER_URLS",
 			Value:       "http://localhost:2380",
 			Destination: &initialAdvertisePeerURLs,
 		},
