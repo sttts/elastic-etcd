@@ -23,12 +23,12 @@ type EtcdConfig struct {
 
 func joinEnv(r *EtcdConfig) map[string]string {
 	return map[string]string{
-		"ETCD_INITIAL_CLUSTER":            strings.Join(r.InitialCluster, ","),
-		"ETCD_INITIAL_CLUSTER_STATE":      r.InitialClusterState,
-		"ETCD_INITIAL_ADVERTISE_PEER_URL": r.AdvertisePeerURLs,
-		"ETCD_DISCOVERY":                  r.Discovery,
-		"ETCD_NAME":                       r.Name,
-		"ETCD_DATA_DIR":                   r.DataDir,
+		"ETCD_INITIAL_CLUSTER":             strings.Join(r.InitialCluster, ","),
+		"ETCD_INITIAL_CLUSTER_STATE":       r.InitialClusterState,
+		"ETCD_INITIAL_ADVERTISE_PEER_URLS": r.AdvertisePeerURLs,
+		"ETCD_DISCOVERY":                   r.Discovery,
+		"ETCD_NAME":                        r.Name,
+		"ETCD_DATA_DIR":                    r.DataDir,
 	}
 }
 
