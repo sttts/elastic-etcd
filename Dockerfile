@@ -1,8 +1,4 @@
-FROM alpine:3.1
+FROM gcr.io/google_containers/etcd:2.2.1
 MAINTAINER Dr. Stefan Schimanski <stefan.schimanski@gmail.com>
 
-RUN apk add -U ca-certificates && rm -rf /var/cache/apk/*
-
-COPY release/elastic-etcd /elastic-etcd
-
-CMD ["/elastic-etcd", "--help"]
+COPY release/elastic-etcd /usr/local/bin/elastic-etcd

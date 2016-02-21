@@ -3,6 +3,7 @@ CMD=elastic-etcd
 GOBUILD=go build
 REPOSITORY=sttts
 VERSION=$(shell git describe --always --tags --dirty)
+DOCKER_TAG=$$(grep "^FROM" Dockerfile | sed 's/.*etcd://')
 
 default: all
 
@@ -50,9 +51,9 @@ release: release/elastic-etcd
 
 .PHONY: docker
 docker: release/elastic-etcd
-	docker build -t $(REPOSITORY)/elastic-etcd .
+	docker build -t $(REPOSITORY)/elastic-etcd:$(DOCKER_TAG) .
 
 push: docker
-	docker push $(REPOSITORY)/elastic-etcd
+	docker push $(REPOSITORY)/elastic-etcd:$(DOCKER_TAG)
 
 .PHONY: build test check
