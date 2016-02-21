@@ -253,6 +253,9 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	if r == nil {
+		os.Exit(0)
+	}
 
 	switch format {
 	case "flags":
