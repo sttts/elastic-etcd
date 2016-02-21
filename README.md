@@ -33,6 +33,7 @@ Environment="ETCD_INITIAL_CLUSTER_STATE=new"
 ```bash
 ETCD_NAME=server1
 ETCD_INITIAL_CLUSTER_STATE=new
+...
 ```
 
 ## Command Line Help
