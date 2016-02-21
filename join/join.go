@@ -1,10 +1,8 @@
 package join
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,10 +12,8 @@ import (
 	"github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
 	"github.com/coreos/etcd/client"
 	"github.com/coreos/etcd/rafthttp"
-	"github.com/coreos/etcd/store"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
-	"github.com/sttts/elastic-etcd/node"
+	"github.com/sttts/elastic-etcd/discovery"
 	"golang.org/x/net/context/ctxhttp"
 )
 
@@ -25,9 +21,8 @@ import (
 type Strategy string
 
 const (
-	livenessTimeout  = time.Second * 5
-	etcdTimeout      = time.Second * 5
-	discoveryTimeout = time.Second * 10
+	livenessTimeout = time.Second * 5
+	etcdTimeout     = time.Second * 5
 
 	// PreparedStrategy assumes that the admin prepares new member entries.
 	PreparedStrategy = Strategy("prepared")
@@ -89,8 +84,8 @@ func active(ctx context.Context, m client.Member) (bool, error) {
 
 func clusterExistingHeuristic(
 	ctx context.Context,
-	size int, nodes []node.DiscoveryNode,
-) ([]node.DiscoveryNode, error) {
+	size int, nodes []discovery.Machine,
+) ([]discovery.Machine, error) {
 	quorum := size/2 + 1
 
 	if nodes == nil {
@@ -101,9 +96,9 @@ func clusterExistingHeuristic(
 	wg := sync.WaitGroup{}
 	wg.Add(len(nodes))
 	lock := sync.Mutex{}
-	activeNodes := make([]node.DiscoveryNode, 0, len(nodes))
+	activeNodes := make([]discovery.Machine, 0, len(nodes))
 	for _, n := range nodes {
-		go func(n node.DiscoveryNode) {
+		go func(n discovery.Machine) {
 			defer wg.Done()
 			if !alive(ctx, n.Member) {
 				glog.Infof("Node %s looks dead", n.NamedPeerURLs())
@@ -145,56 +140,6 @@ func clusterExistingHeuristic(
 	return nil, nil
 }
 
-func discoveryValue(ctx context.Context, baseURL, key string) (*store.Event, error) {
-	ctx, _ = context.WithTimeout(ctx, discoveryTimeout)
-
-	url := baseURL + key
-	glog.V(6).Infof("Getting %s", url)
-	resp, err := ctxhttp.Get(ctx, http.DefaultClient, url)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
-		return nil, fmt.Errorf("status code %d from %q: %s", resp.StatusCode, url, body)
-	}
-
-	var res store.Event
-	err = json.NewDecoder(resp.Body).Decode(&res)
-	if err != nil {
-		return nil, fmt.Errorf("invalid answer from %q: %v", url, err)
-	}
-
-	glog.V(9).Infof("Got: %s", spew.Sdump(res))
-
-	return &res, nil
-}
-
-func deleteDiscoveryMachine(ctx context.Context, baseURL, id string) (bool, error) {
-	ctx, _ = context.WithTimeout(ctx, discoveryTimeout)
-
-	url := baseURL + "/" + strings.TrimLeft(id, "/")
-	req, err := http.NewRequest("DELETE", url, strings.NewReader(""))
-	if err != nil {
-		return false, err
-	}
-	resp, err := ctxhttp.Do(ctx, http.DefaultClient, req)
-	if err != nil {
-		return false, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode == http.StatusNotFound {
-		return false, nil
-	}
-	if resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
-		return false, fmt.Errorf("status code %d on DELETE for %q: %s", resp.StatusCode, url, body)
-	}
-
-	return true, nil
-}
-
 // Join adds a new member depending on the strategy and returns a matching etcd configuration.
 func Join(
 	discoveryURL, name, initialAdvertisePeerURLs string,
@@ -204,16 +149,17 @@ func Join(
 ) (*EtcdConfig, error) {
 	ctx := context.Background()
 
-	res, err := discoveryValue(ctx, discoveryURL, "/")
+	res, err := discovery.Value(ctx, discoveryURL, "/")
 	if err != nil {
 		return nil, err
 	}
-	nodes := make([]node.DiscoveryNode, 0, len(res.Node.Nodes))
+	nodes := make([]discovery.Machine, 0, len(res.Node.Nodes))
 	for _, nn := range res.Node.Nodes {
 		if nn.Value == nil {
 			glog.V(5).Infof("Skipping %q because no value exists", nn.Key)
 		}
-		n, err := node.NewDiscoveryNode(*nn.Value, clientPort)
+		var n *discovery.Machine
+		n, err = discovery.NewDiscoveryNode(*nn.Value, clientPort)
 		if err != nil {
 			glog.Warningf("invalid peer url %q in discovery service: %v", *nn.Value, err)
 			continue
@@ -222,7 +168,7 @@ func Join(
 	}
 
 	if clusterSize < 0 {
-		res, err = discoveryValue(ctx, discoveryURL, "/_config/size")
+		res, err = discovery.Value(ctx, discoveryURL, "/_config/size")
 		if err != nil {
 			return nil, fmt.Errorf("cannot get discovery url cluster size: %v", err)
 		}
@@ -244,9 +190,9 @@ func Join(
 		// cluster down. Restarting nodes with the same config.
 		if fresh {
 			return nil, errors.New("Cluster is down. A new node cannot join now.")
-		} else {
-			glog.Infof("Existing cluster seems to be done. No healthy node found. Trying to resume cluster.")
 		}
+
+		glog.Infof("Existing cluster seems to be done. No healthy node found. Trying to resume cluster.")
 
 		return &EtcdConfig{
 			InitialClusterState: "existing",
@@ -268,7 +214,7 @@ func Join(
 
 		initialNamedURLs := []string{advertisedNamedURLs[0]}
 		if strategy != PreparedStrategy && fresh {
-			glog.Infof("Existing cluster found. Trying to join with %q strategy.")
+			glog.Infof("Existing cluster found. Trying to join with %q strategy.", string(strategy))
 
 			adder, err := newMemberAdder(
 				activeNodes,
