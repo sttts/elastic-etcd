@@ -1,4 +1,4 @@
-![Image of Yaktocat](elastic-etcd.png)
+![Elastic Etcd](elastic-etcd.png)
 
 # elastic-etcd
 
