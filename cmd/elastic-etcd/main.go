@@ -235,7 +235,7 @@ func Run(args []string) (*EtcdConfig, string, error) {
 				return
 			}
 			glog.V(6).Infof("Found the following files in %s: %v", dataDir, fs)
-			fresh = len(fs) <= 2
+			fresh = len(fs) == 0
 		}
 
 		jr, err := join.Join(
