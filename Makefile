@@ -1,6 +1,7 @@
 SHELL=/bin/bash
 CMD=elastic-etcd
 GOBUILD=go build
+REPOSITORY=sttts
 
 default: all
 
@@ -35,6 +36,17 @@ gometalinter:
 check: gofmt gometalinter
 
 clean:
-	rm -f $(CMD)
+	rm -f $(CMD) docker/elastic-etcd
+
+.PHONY: docker/elastic-etcd
+docker/elastic-etcd:
+	cd docker && GOOS=linux go build github.com/sttts/elastic-etcd/cmd/elastic-etcd
+
+.PHONY: docker
+docker: docker/elastic-etcd
+	docker build -t $(REPOSITORY)/elastic-etcd docker
+
+push: docker
+	docker push $(REPOSITORY)/elastic-etcd
 
 .PHONY: build test check
