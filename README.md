@@ -43,25 +43,29 @@ USAGE:
    elastic-etcd [global options] command [command options] [arguments...]
 
 COMMANDS:
-   help, h	Shows a list of commands or help for one command
+   help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --discovery-url 						a etcd discovery url [$ELASTIC_ETCD_DISCOVERY]
-   --join-strategy "replace"	the strategy to join: dumb, replace, add [$ETCD_JOIN_STRATEGY]
-   --data-dir 							  the etcd data directory [$ETCD_DATA_DIR]
-   -o "env"							      the output format out of: env, dropin, flags
-   --name 							      the cluster-unique node name [$ETCD_NAME]
-   --client-port "2379"				the etcd client port of all peers [$ETCD_CLIENT_PORT]
-   --cluster-size "-1"				the maximum etcd cluster size, default: size value of 
+   -o "env"                   the output format out of: env, dropin, flags
+   --join-strategy "replace"  the strategy to join: dumb, replace, add
+                              [$ETCD_JOIN_STRATEGY]
+   --client-port "2379"       the etcd client port of all peers [$ETCD_CLIENT_PORT]
+   --cluster-size "-1"        the maximum etcd cluster size, default: size value of
                               discovery url, 0 for infinit [$ETCD_CLUSTER_SIZE]
-   --initial-advertise-peer-urls "http://localhost:2380"	the advertised peer urls 
+
+   --discovery-url            a etcd discovery url [$ELASTIC_ETCD_DISCOVERY]
+   --data-dir                 the etcd data directory [$ETCD_DATA_DIR]
+   --name                     the cluster-unique node name [$ETCD_NAME]
+   --initial-advertise-peer-urls "http://localhost:2380"  the advertised peer urls
                               of this instance [$ETCD_INITIAL_ADVERTISE_PEER_URLS]
-   --alsologtostderr=false		log to standard error as well as files
-   --log_backtrace_at=:0			when logging hits line file:N, emit a stack trace
-   --log_dir=							    If non-empty, write log files in this directory
-   --logtostderr=false				log to standard error instead of files
-   --stderrthreshold=2				logs at or above this threshold go to stderr
-   --v=0							        log level for V logs
-   --vmodule=							    comma-separated list of pattern=N settings for file-filtered logging
-   --help, -h							    show help
+
+   --alsologtostderr=false    log to standard error as well as files
+   --log_backtrace_at=:0      when logging hits line file:N, emit a stack trace
+   --log_dir=                 If non-empty, write log files in this directory
+   --logtostderr=false        log to standard error instead of files
+   --stderrthreshold=2        logs at or above this threshold go to stderr
+   --v=0                      log level for V logs
+   --vmodule=                 comma-separated list of pattern=N settings for
+                              file-filtered logging
+   --help, -h                 show help
 ```
