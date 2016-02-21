@@ -6,9 +6,9 @@ An **EXPERIMENTAL** wrapper around [etcd2](https://github.com/coreos/etcd) to ad
 
 ## Ratio
 
-While etcd was born in the cloud era, it does not really play well in a dynamic environment where node come and go and where IP addresses are ephemeral. Moreover, etcd is meant – with its RAFT algorithm at the core – as a consistent key-value store. It rather refuses to form or join a cluster than putting concistency at risk.
+While etcd was born in the cloud era, it does not really play well in a dynamic environment where nodes come and go and where IP addresses are ephemeral. Moreover, etcd is meant – with its RAFT algorithm at the core – as a consistent key-value store. It rather refuses to form or join a cluster than putting concistency at risk.
 
-As a consequence it is very conservative in implementing advanced cluster member management mechanisms – or even heuristics to make the operation of an etcd cluster more confortable.
+As a consequence it is very conservative in implementing advanced cluster member management mechanisms – or even heuristics to make the operation of an etcd cluster more comfortable for the admin.
 
 The elastic-etcd binary experiments with those advanced member management heuristics. It is meant as a frontend to the etcd binary, applying these heuristics and then creating a matching command line for etcd itself.
 
@@ -129,15 +129,15 @@ GLOBAL OPTIONS:
 
 The first block of flags is used to control the elastic-etcd algorithm:
 - `-o`: compare [above](#output-format)
-- `--join-strategy`: can be one of prepared, replace, prune, add:
+- `--join-strategy`: can be one of **prepared**, **replace**, **prune**, **add**:
   - **prepare**: assumes that the admin prepares new member entries
-  - **add**: only adds a member until the cluster is full, never removes old members
-  - **replace** (default): defensively removes a dead member only when a cluster is full
-  - **prune**: aggressively removes dead members.
-- `--client-port`: for health checking using the entries in the discovery service url this port is used. At the discovery time there is no client url known, only peer urls. To get the current cluster state a client url is necessary though. This of course only works if all client urls of the cluster members use the same port.
-- `--cluster-size`: by default the discovery url cluster size is used to limit addition of new members. Using `--cluster-size` this can be overridden.
+  - **add**: adds a member until the cluster is full, never removes old members
+  - **replace** (default): defensively removes a dead member, i.e. only when a cluster is full. Then adds itself.
+  - **prune**: aggressively removes all dead members. Then adds itself.
+- `--client-port`: for health checking using the entries in the discovery service url this port is used. At the discovery time there is no client url known, only peer urls. In order to get the current cluster state, a client url is necessary though. This of course only works if all client urls of the cluster members use the same port.
+- `--cluster-size`: by default the discovery url cluster size is used to limit addition of new members. Using `--cluster-size` this can be overridden, e.g. to grow a cluster after bootstrapping.
 
-The second block of flags have the same meaning as for etcd. Though, the elastic-etcd algorithm might decide to change the values of those flags and pass them to etcd (via one of the output modes).
+The second block of flags has the same meaning as for etcd. Though, the elastic-etcd algorithm might decide to change the values of those flags and pass them to etcd (via one of the output modes).
 
 ## How To Build
 
@@ -156,9 +156,9 @@ For experimentation the elastic-etcd algorithm supports a number of join strateg
 
 The **prepare** strategy resembles the default behavior of etcd. In this mode, the admin has to remove old member and add a new entry *before* the new etcd instance actually starts up.
 
-The **add** strategy is also similar to the default behavior of etcd, but adds the capability for a new etcd instance to join an existing cluster, as long as the cluster is below the given `--cluster-size` size.
+The **add** strategy is also similar to the default behavior of etcd, but adds the capability for a new etcd instance to join an existing cluster, as long as the cluster is below the given `--cluster-size` size (defaulting to the discovery url cluster size).
 
-The **replace** strategy is probably the right mix between old conservative behavior and the needs of a dynamic cloud environment where IPs come and go when machines are replaced. It will behave like the **add** behavior, but in addition it will health check all cluster member and eventually remove one dead member. This removal is only done when the cluster would be full otherwise. I.e. during cluster growth (e.g. when the user passes `--cluster-size` long after bootstrapping) this strategy behaves conservatively without removal of any member.
+The **replace** strategy is probably the right mix between old conservative behavior and the needs of a dynamic cloud environment where IPs come and go when machines are replaced. It will behave like the **add** behavior, but in addition it will health check all cluster member and eventually remove one dead member before adding itself. This removal though is only done when the cluster would be full otherwise. I.e. during cluster growth (e.g. when the user passes `--cluster-size` long after bootstrapping) this strategy behaves conservatively without removal of any member.
 
 Finally the **prune** strategy is like **replace**, but it will always remove every dead member before adding the new instance.
 
