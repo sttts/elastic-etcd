@@ -32,13 +32,13 @@ type etcdProcessConfig struct {
 	cfg         *elasticEtcdProcessConfig
 	args        []string
 	dataDirPath string
-	clientUrl   string
+	clientURL   string
 	isProxy     bool
 }
 
 type elasticEtcdProcessConfig struct {
 	num          int
-	discoveryUrl string
+	discoveryURL string
 	joinStrategy string
 	name         string
 	clientPort   int
@@ -48,20 +48,20 @@ type elasticEtcdProcessConfig struct {
 type elasticEtcdClusterConfig struct {
 	initialClusterSize   int
 	discoveryClusterSize int
-	discoveryUrl         string
+	discoveryURL         string
 	joinStrategy         string
 }
 
 func (c *elasticEtcdProcessConfig) etcdProcessConfig() (*etcdProcessConfig, error) {
-	clientUrl := fmt.Sprintf("http://localhost:%d", 2379+c.num*100)
-	peerUrl := fmt.Sprintf("http://localhost:%d", 2380+c.num*100)
+	clientURL := fmt.Sprintf("http://localhost:%d", 2379+c.num*100)
+	peerURL := fmt.Sprintf("http://localhost:%d", 2380+c.num*100)
 
 	// run elastic-etcd
 	args := []string{
 		"elastic-etcd",
-		"-discovery-url=" + c.discoveryUrl,
+		"-discovery-url=" + c.discoveryURL,
 		"-o=flags",
-		"--initial-advertise-peer-urls", peerUrl,
+		"--initial-advertise-peer-urls", peerURL,
 		fmt.Sprintf("-name=%d", c.num),
 	}
 	if c.joinStrategy != "" {
@@ -81,15 +81,15 @@ func (c *elasticEtcdProcessConfig) etcdProcessConfig() (*etcdProcessConfig, erro
 
 	// build etcd flags
 	args = r.Flags()
-	args = append(args, "--listen-client-urls", clientUrl)
-	args = append(args, "--advertise-client-urls", clientUrl)
-	args = append(args, "--listen-peer-urls", peerUrl)
+	args = append(args, "--listen-client-urls", clientURL)
+	args = append(args, "--advertise-client-urls", clientURL)
+	args = append(args, "--listen-peer-urls", peerURL)
 
 	return &etcdProcessConfig{
 		cfg:         c,
 		args:        args,
 		dataDirPath: fmt.Sprintf("%d.etcd", c.num),
-		clientUrl:   clientUrl,
+		clientURL:   clientURL,
 		isProxy:     false,
 	}, nil
 }
@@ -100,12 +100,12 @@ func (cc *elasticEtcdClusterConfig) etcdProcessConfigs() ([]*etcdProcessConfig, 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := ioutil.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status code %d in discovery new call: %s", resp.StatusCode, body)
 	}
-	discoveryUrl := string(body)
+	discoveryURL := string(body)
 
 	// create etcd config
 	pcs := make([]*etcdProcessConfig, 0, cc.discoveryClusterSize)
@@ -115,7 +115,7 @@ func (cc *elasticEtcdClusterConfig) etcdProcessConfigs() ([]*etcdProcessConfig, 
 			joinStrategy: cc.joinStrategy,
 			clientPort:   2379,
 			clusterSize:  cc.discoveryClusterSize,
-			discoveryUrl: discoveryUrl,
+			discoveryURL: discoveryURL,
 		}
 
 		pc, err := epc.etcdProcessConfig()
@@ -194,7 +194,7 @@ func newElasticEtcdProcessCluster(
 		}
 		proc, err := newEtcdProcess(etcdCfgs[i])
 		if err != nil {
-			epc.Close()
+			_ = epc.Close()
 			return nil, err
 		}
 		epc.procs[i] = proc
@@ -209,7 +209,7 @@ func newElasticEtcdProcessCluster(
 	}
 	for range etcdCfgs {
 		if err := <-readyC; err != nil {
-			epc.Close()
+			_ = epc.Close()
 			return nil, err
 		}
 	}
@@ -236,7 +236,7 @@ func (epc *etcdProcessCluster) Close() (err error) {
 		if p == nil {
 			continue
 		}
-		os.RemoveAll(p.cfg.dataDirPath)
+		_ = os.RemoveAll(p.cfg.dataDirPath)
 		if curErr := p.proc.Close(); curErr != nil {
 			if err != nil {
 				err = fmt.Errorf("%v; %v", err, curErr)

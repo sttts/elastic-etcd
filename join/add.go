@@ -10,53 +10,53 @@ import (
 	"github.com/sttts/elastic-etcd/node"
 )
 
-type MemberAdder struct {
+type memberAdder struct {
 	mapi         client.MembersAPI
 	activeNodes  []node.DiscoveryNode
 	strategy     Strategy
 	clientPort   int
 	targetSize   int
-	discoveryUrl string
+	discoveryURL string
 }
 
-func NewMemberAdder(
+func newMemberAdder(
 	activeNodes []node.DiscoveryNode,
 	strategy Strategy,
 	clientPort int,
 	targetSize int,
-	discoveryUrl string,
-) (*MemberAdder, error) {
-	activeUrls := make([]string, 0, len(activeNodes))
+	discoveryURL string,
+) (*memberAdder, error) {
+	activeURLs := make([]string, 0, len(activeNodes))
 	for _, an := range activeNodes {
-		activeUrls = append(activeUrls, an.ClientURLs...)
+		activeURLs = append(activeURLs, an.ClientURLs...)
 	}
 
 	c, err := client.New(client.Config{
-		Endpoints:               activeUrls,
+		Endpoints:               activeURLs,
 		Transport:               client.DefaultTransport,
-		HeaderTimeoutPerRequest: EtcdTimeout,
+		HeaderTimeoutPerRequest: etcdTimeout,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &MemberAdder{
+	return &memberAdder{
 		mapi:         client.NewMembersAPI(c),
 		activeNodes:  activeNodes,
 		strategy:     strategy,
 		clientPort:   clientPort,
 		targetSize:   targetSize,
-		discoveryUrl: discoveryUrl,
+		discoveryURL: discoveryURL,
 	}, nil
 }
 
-func (ma *MemberAdder) findUnstartedMember(
+func (ma *memberAdder) findUnstartedMember(
 	members []client.Member,
 	urls []string,
 ) *client.Member {
-	newUrls := map[string]struct{}{}
+	newURLs := map[string]struct{}{}
 	for _, u := range urls {
-		newUrls[u] = struct{}{}
+		newURLs[u] = struct{}{}
 	}
 
 findUnstartedMember:
@@ -67,7 +67,7 @@ findUnstartedMember:
 
 		// check whether m has a subset of our peer urls
 		for _, u := range m.PeerURLs {
-			if _, found := newUrls[u]; !found {
+			if _, found := newURLs[u]; !found {
 				continue findUnstartedMember
 			}
 		}
@@ -78,7 +78,7 @@ findUnstartedMember:
 	return nil
 }
 
-func (ma *MemberAdder) removeDeadMembersN(
+func (ma *memberAdder) removeDeadMembersN(
 	ctx context.Context,
 	members []client.Member,
 	maxNum int,
@@ -103,7 +103,7 @@ searchForDead:
 					continue searchForDead
 				}
 				if isActive {
-					glog.V(5).Infof("Member %v found to be alive and active", n.NamedPeerUrls())
+					glog.V(5).Infof("Member %v found to be alive and active", n.NamedPeerURLs())
 					continue searchForDead
 				}
 			}
@@ -116,12 +116,15 @@ searchForDead:
 		}
 		glog.Infof("Removed dead member %s=%q", m.Name, m.PeerURLs)
 
-		glog.V(4).Infof("Trying to remove dead member %s=%v from discovery url %v", m.Name, m.PeerURLs, ma.discoveryUrl)
-		found, err := deleteDiscoveryMachine(ctx, ma.discoveryUrl, m.ID)
+		glog.V(4).Infof("Trying to remove dead member %s=%v from discovery url %v", m.Name, m.PeerURLs, ma.discoveryURL)
+		found, err := deleteDiscoveryMachine(ctx, ma.discoveryURL, m.ID)
+		if err != nil {
+			return nil, fmt.Errorf("could remove dead member %s=%v from discovery url %v: %v", m.Name, m.PeerURLs, ma.discoveryURL, err)
+		}
 		if !found {
-			glog.V(2).Infof("Dead member %s=%q not found in discovery url %v", m.Name, m.PeerURLs, ma.discoveryUrl)
+			glog.V(2).Infof("Dead member %s=%q not found in discovery url %v", m.Name, m.PeerURLs, ma.discoveryURL)
 		} else {
-			glog.Infof("Dead member %s=%q removed from discovery url %v", m.Name, m.PeerURLs, ma.discoveryUrl)
+			glog.Infof("Dead member %s=%q removed from discovery url %v", m.Name, m.PeerURLs, ma.discoveryURL)
 		}
 
 		break
@@ -130,7 +133,7 @@ searchForDead:
 	return deleted, nil
 }
 
-func (ma *MemberAdder) protectCluster(ctx context.Context) error {
+func (ma *memberAdder) protectCluster(ctx context.Context) error {
 	// check that we don't destroy the quorum
 	ms, err := ma.mapi.List(ctx)
 	if err != nil {
@@ -164,12 +167,12 @@ func (ma *MemberAdder) protectCluster(ctx context.Context) error {
 	return nil
 }
 
-func (ma *MemberAdder) Add(
+func (ma *memberAdder) Add(
 	ctx context.Context,
 	name string,
 	urls []string,
 ) ([]string, error) {
-	ctx, _ = context.WithTimeout(ctx, EtcdTimeout)
+	ctx, _ = context.WithTimeout(ctx, etcdTimeout)
 
 	glog.V(4).Info("Getting cluster members")
 	ms, err := ma.mapi.List(ctx)
@@ -191,7 +194,8 @@ func (ma *MemberAdder) Add(
 	switch ma.strategy {
 	case ReplaceStrategy:
 		if len(ms) >= ma.targetSize {
-			removed, err := ma.removeDeadMembersN(ctx, ms, 1)
+			var removed []*client.Member
+			removed, err = ma.removeDeadMembersN(ctx, ms, 1)
 			if err != nil {
 				return nil, err
 			}
@@ -202,7 +206,7 @@ func (ma *MemberAdder) Add(
 			glog.Infof("Cluster not full with %d member our of %d. Going ahead with adding.", len(ms), ma.targetSize)
 		}
 	case PruneStrategy:
-		_, err := ma.removeDeadMembersN(ctx, ms, len(ms))
+		_, err = ma.removeDeadMembersN(ctx, ms, len(ms))
 		if err != nil {
 			return nil, err
 		}

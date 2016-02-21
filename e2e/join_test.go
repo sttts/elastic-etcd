@@ -15,7 +15,7 @@ func smokeTest(t *testing.T, epc *etcdProcessCluster) {
 		Endpoints: []string{},
 	}
 	for _, p := range epc.procs {
-		cfg.Endpoints = append(cfg.Endpoints, p.cfg.clientUrl)
+		cfg.Endpoints = append(cfg.Endpoints, p.cfg.clientURL)
 	}
 	c, err := client.New(cfg)
 	if err != nil {
@@ -50,22 +50,21 @@ func launchCluster(t *testing.T, cfg *elasticEtcdClusterConfig) *etcdProcessClus
 	return epc
 }
 
-func test_newCluster(t *testing.T, cfg *elasticEtcdClusterConfig) {
+func testNewCluster(t *testing.T, cfg *elasticEtcdClusterConfig) {
 	epc := launchCluster(t, cfg)
-	defer epc.Close()
+	defer func() { _ = epc.Close() }()
 }
 
-func test_restartEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
+func testRestartEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
 	epc := launchCluster(t, cfg)
-	defer epc.Close()
+	defer func() { _ = epc.Close() }()
 
 	// stop process
-	epc.procs[2].proc.Close()
+	_ = epc.procs[2].proc.Close()
 
 	// restart etcd with same flags
 	proc, err := newEtcdProcess(epc.procs[2].cfg)
 	if err != nil {
-		epc.Close()
 		t.Fatal(err)
 	}
 	epc.procs[2] = proc
@@ -79,12 +78,12 @@ func test_restartEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
 	smokeTest(t, epc)
 }
 
-func test_restartElasticEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
+func testRestartElasticEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
 	epc := launchCluster(t, cfg)
-	defer epc.Close()
+	defer func() { _ = epc.Close() }()
 
 	// stop process
-	epc.procs[2].proc.Close()
+	_ = epc.procs[2].proc.Close()
 
 	// restart elastic-etcd and then etcd with the new flags
 	newCfg, err := epc.procs[2].cfg.cfg.etcdProcessConfig()
@@ -93,7 +92,6 @@ func test_restartElasticEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
 	}
 	epc.procs[2], err = newEtcdProcess(newCfg)
 	if err != nil {
-		epc.Close()
 		t.Fatal(err)
 	}
 
@@ -106,12 +104,12 @@ func test_restartElasticEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
 	smokeTest(t, epc)
 }
 
-func test_restartCleanElasticEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
+func testRestartCleanElasticEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
 	epc := launchCluster(t, cfg)
-	defer epc.Close()
+	defer func() { _ = epc.Close() }()
 
 	// stop process
-	epc.procs[2].proc.Close()
+	_ = epc.procs[2].proc.Close()
 
 	// clean data dir
 	if err := os.RemoveAll(epc.procs[2].cfg.dataDirPath); err != nil {
@@ -125,7 +123,6 @@ func test_restartCleanElasticEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
 	}
 	epc.procs[2], err = newEtcdProcess(newCfg)
 	if err != nil {
-		epc.Close()
 		t.Fatal(err)
 	}
 
@@ -138,9 +135,9 @@ func test_restartCleanElasticEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
 	smokeTest(t, epc)
 }
 
-func test_growElasticEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
+func testGrowElasticEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
 	epc := launchCluster(t, cfg)
-	defer epc.Close()
+	defer func() { _ = epc.Close() }()
 
 	// start a 4th etcd, increase cluster size
 	eepc := *epc.procs[2].cfg.cfg
@@ -156,13 +153,9 @@ func test_growElasticEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
 		t.Fatal(err)
 	}
 	epc.procs = append(epc.procs, ep)
-	if err != nil {
-		epc.Close()
-		t.Fatal(err)
-	}
 
 	// wait for join
-	ep.waitForLaunch()
+	err = ep.waitForLaunch()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,36 +189,42 @@ var (
 	}
 )
 
-func Test_elastic_newCluster_Prepared(t *testing.T) { test_newCluster(t, &elasticPreparedConfig) }
-func Test_elastic_newCluster_Replace(t *testing.T)  { test_newCluster(t, &elasticReplaceConfig) }
-func Test_elastic_newCluster_Prune(t *testing.T)    { test_newCluster(t, &elasticPruneConfig) }
-func Test_elastic_newCluster_Add(t *testing.T)      { test_newCluster(t, &elasticAddConfig) }
+func TestElasticNewClusterPrepared(t *testing.T) { testNewCluster(t, &elasticPreparedConfig) }
+func TestElasticNewClusterReplace(t *testing.T)  { testNewCluster(t, &elasticReplaceConfig) }
+func TestElasticNewClusterPrune(t *testing.T)    { testNewCluster(t, &elasticPruneConfig) }
+func TestElasticNewClusterAdd(t *testing.T)      { testNewCluster(t, &elasticAddConfig) }
 
-func Test_elastic_restartEtcd_Prepared(t *testing.T) { test_restartEtcd(t, &elasticPreparedConfig) }
-func Test_elastic_restartEtcd_Replace(t *testing.T)  { test_restartEtcd(t, &elasticReplaceConfig) }
-func Test_elastic_restartEtcd_Prune(t *testing.T)    { test_restartEtcd(t, &elasticPruneConfig) }
-func Test_elastic_restartEtcd_Add(t *testing.T)      { test_restartEtcd(t, &elasticAddConfig) }
+func TestElasticRestartEtcdPrepared(t *testing.T) { testRestartEtcd(t, &elasticPreparedConfig) }
+func TestElasticRestartEtcdReplace(t *testing.T)  { testRestartEtcd(t, &elasticReplaceConfig) }
+func TestElasticRestartEtcdPrune(t *testing.T)    { testRestartEtcd(t, &elasticPruneConfig) }
+func TestElasticRestartEtcdAdd(t *testing.T)      { testRestartEtcd(t, &elasticAddConfig) }
 
-func Test_elastic_restartElasticEtcd_Prepared(t *testing.T) {
-	test_restartElasticEtcd(t, &elasticPreparedConfig)
+func TestElasticRestartElasticEtcdPrepared(t *testing.T) {
+	testRestartElasticEtcd(t, &elasticPreparedConfig)
 }
-func Test_elastic_restartElasticEtcd_Replace(t *testing.T) {
-	test_restartElasticEtcd(t, &elasticReplaceConfig)
+func TestElasticRestartElasticEtcdReplace(t *testing.T) {
+	testRestartElasticEtcd(t, &elasticReplaceConfig)
 }
-func Test_elastic_restartElasticEtcd_Prune(t *testing.T) {
-	test_restartElasticEtcd(t, &elasticPruneConfig)
+func TestElasticRestartElasticEtcdPrune(t *testing.T) {
+	testRestartElasticEtcd(t, &elasticPruneConfig)
 }
-func Test_elastic_restartElasticEtcd_Add(t *testing.T) { test_restartElasticEtcd(t, &elasticAddConfig) }
-
-func Test_elastic_restartCleanElasticEtcd_Replace(t *testing.T) {
-	test_restartCleanElasticEtcd(t, &elasticReplaceConfig)
-}
-func Test_elastic_restartCleanElasticEtcd_Prune(t *testing.T) {
-	test_restartCleanElasticEtcd(t, &elasticPruneConfig)
+func TestElasticRestartElasticEtcdAdd(t *testing.T) {
+	testRestartElasticEtcd(t, &elasticAddConfig)
 }
 
-func Test_elastic_growElasticEtcd_Replace(t *testing.T) {
-	test_growElasticEtcd(t, &elasticReplaceConfig)
+func TestElasticRestartCleanElasticEtcdReplace(t *testing.T) {
+	testRestartCleanElasticEtcd(t, &elasticReplaceConfig)
 }
-func Test_elastic_growElasticEtcd_Prune(t *testing.T) { test_growElasticEtcd(t, &elasticPruneConfig) }
-func Test_elastic_growElasticEtcd_Add(t *testing.T)   { test_growElasticEtcd(t, &elasticAddConfig) }
+func TestElasticRestartCleanElasticEtcdPrune(t *testing.T) {
+	testRestartCleanElasticEtcd(t, &elasticPruneConfig)
+}
+
+func TestElasticGrowElasticEtcdReplace(t *testing.T) {
+	testGrowElasticEtcd(t, &elasticReplaceConfig)
+}
+func TestElasticGrowElasticEtcdPrune(t *testing.T) {
+	testGrowElasticEtcd(t, &elasticPruneConfig)
+}
+func TestElasticGrowElasticEtcdAdd(t *testing.T) {
+	testGrowElasticEtcd(t, &elasticAddConfig)
+}

@@ -21,32 +21,41 @@ import (
 	"golang.org/x/net/context/ctxhttp"
 )
 
+// Strategy describes the member add strategy.
 type Strategy string
 
 const (
-	LivenessTimeout  = time.Second * 5
-	EtcdTimeout      = time.Second * 5
-	DiscoveryTimeout = time.Second * 10
+	livenessTimeout  = time.Second * 5
+	etcdTimeout      = time.Second * 5
+	discoveryTimeout = time.Second * 10
 
+	// PreparedStrategy assumes that the admin prepares new member entries.
 	PreparedStrategy = Strategy("prepared")
-	PruneStrategy    = Strategy("prune")
-	ReplaceStrategy  = Strategy("replace")
-	AddStrategy      = Strategy("add")
+
+	// PruneStrategy aggressively remove dead members.
+	PruneStrategy = Strategy("prune")
+
+	// ReplaceStrategy defensively removes a dead member only when a cluster is full.
+	ReplaceStrategy = Strategy("replace")
+
+	// AddStrategy only adds a member until the cluster is full, never removes old member.
+	AddStrategy = Strategy("add")
 
 	maxUint = ^uint(0)
 	maxInt  = int(maxUint >> 1)
 )
 
-type Result struct {
+// EtcdConfig is the result of the join algorithm, turned into etcd flags or env vars.
+type EtcdConfig struct {
 	InitialCluster      []string
 	InitialClusterState string
-	AdvertisePeerUrls   string
+	AdvertisePeerURLs   string
 	Discovery           string
 	Name                string
 }
 
 func alive(ctx context.Context, m client.Member) bool {
-	ctx, _ = context.WithTimeout(ctx, LivenessTimeout)
+	ctx, _ = context.WithTimeout(ctx, livenessTimeout)
 	glog.V(6).Infof("Testing liveness of %s=%v", m.Name, m.PeerURLs)
 	for _, u := range m.PeerURLs {
 		resp, err := ctxhttp.Get(ctx, http.DefaultClient, u+rafthttp.ProbingPrefix)
@@ -59,7 +68,7 @@ func alive(ctx context.Context, m client.Member) bool {
 }
 
 func active(ctx context.Context, m client.Member) (bool, error) {
-	ctx, _ = context.WithTimeout(ctx, EtcdTimeout)
+	ctx, _ = context.WithTimeout(ctx, etcdTimeout)
 
 	c, err := client.New(client.Config{
 		Endpoints:               m.ClientURLs,
@@ -96,17 +105,17 @@ func clusterExistingHeuristic(
 		go func(n node.DiscoveryNode) {
 			defer wg.Done()
 			if !alive(ctx, n.Member) {
-				glog.Infof("Node %s looks dead", n.NamedPeerUrls())
+				glog.Infof("Node %s looks dead", n.NamedPeerURLs())
 				return
 			}
 			if ok, err := active(ctx, n.Member); !ok {
 				if err != nil {
 					glog.Error(err)
 				}
-				glog.Infof("Node %s is not in a healthy cluster.", n.NamedPeerUrls())
+				glog.Infof("Node %s is not in a healthy cluster.", n.NamedPeerURLs())
 				return
 			}
-			glog.Infof("Node %s looks alive and active in a cluster", n.NamedPeerUrls())
+			glog.Infof("Node %s looks alive and active in a cluster", n.NamedPeerURLs())
 			activeNodes = append(activeNodes, n)
 		}(n)
 	}
@@ -133,16 +142,16 @@ func clusterExistingHeuristic(
 	return nil, nil
 }
 
-func discoveryValue(ctx context.Context, baseUrl, key string) (*store.Event, error) {
-	ctx, _ = context.WithTimeout(ctx, DiscoveryTimeout)
+func discoveryValue(ctx context.Context, baseURL, key string) (*store.Event, error) {
+	ctx, _ = context.WithTimeout(ctx, discoveryTimeout)
 
-	url := baseUrl + key
+	url := baseURL + key
 	glog.V(6).Infof("Getting %s", url)
 	resp, err := ctxhttp.Get(ctx, http.DefaultClient, url)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
 		return nil, fmt.Errorf("status code %d from %q: %s", resp.StatusCode, url, body)
@@ -159,10 +168,10 @@ func discoveryValue(ctx context.Context, baseUrl, key string) (*store.Event, err
 	return &res, nil
 }
 
-func deleteDiscoveryMachine(ctx context.Context, baseUrl, id string) (bool, error) {
-	ctx, _ = context.WithTimeout(ctx, DiscoveryTimeout)
+func deleteDiscoveryMachine(ctx context.Context, baseURL, id string) (bool, error) {
+	ctx, _ = context.WithTimeout(ctx, discoveryTimeout)
 
-	url := baseUrl + "/" + strings.TrimLeft(id, "/")
+	url := baseURL + "/" + strings.TrimLeft(id, "/")
 	req, err := http.NewRequest("DELETE", url, strings.NewReader(""))
 	if err != nil {
 		return false, err
@@ -171,7 +180,7 @@ func deleteDiscoveryMachine(ctx context.Context, baseUrl, id string) (bool, erro
 	if err != nil {
 		return false, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusNotFound {
 		return false, nil
 	}
@@ -183,15 +192,16 @@ func deleteDiscoveryMachine(ctx context.Context, baseUrl, id string) (bool, erro
 	return true, nil
 }
 
+// Join adds a new member depending on the strategy and returns a matching etcd configuration.
 func Join(
-	discoveryUrl, name, initialAdvertisePeerUrls string,
+	discoveryURL, name, initialAdvertisePeerURLs string,
 	fresh bool,
 	clientPort, clusterSize int,
 	strategy Strategy,
-) (*Result, error) {
+) (*EtcdConfig, error) {
 	ctx := context.Background()
 
-	res, err := discoveryValue(ctx, discoveryUrl, "/")
+	res, err := discoveryValue(ctx, discoveryURL, "/")
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +219,7 @@ func Join(
 	}
 
 	if clusterSize < 0 {
-		res, err = discoveryValue(ctx, discoveryUrl, "/_config/size")
+		res, err = discoveryValue(ctx, discoveryURL, "/_config/size")
 		if err != nil {
 			return nil, fmt.Errorf("cannot get discovery url cluster size: %v", err)
 		}
@@ -233,58 +243,58 @@ func Join(
 			return nil, errors.New("Cluster is down. A new node cannot join now.")
 		}
 
-		return &Result{
+		return &EtcdConfig{
 			InitialClusterState: "existing",
-			AdvertisePeerUrls:   initialAdvertisePeerUrls,
+			AdvertisePeerURLs:   initialAdvertisePeerURLs,
 			Name:                name,
 		}, nil
 	} else if activeNodes != nil {
-		activeNamedUrls := make([]string, 0, len(nodes))
+		activeNamedURLs := make([]string, 0, len(nodes))
 		for _, n := range activeNodes {
-			activeNamedUrls = append(activeNamedUrls, n.NamedPeerUrls()...)
+			activeNamedURLs = append(activeNamedURLs, n.NamedPeerURLs()...)
 		}
 
-		advertisedUrls := strings.Split(initialAdvertisePeerUrls, ",")
+		advertisedURLs := strings.Split(initialAdvertisePeerURLs, ",")
 
-		advertisedNamedUrls := make([]string, 0, len(initialAdvertisePeerUrls))
-		for _, u := range advertisedUrls {
-			advertisedNamedUrls = append(advertisedNamedUrls, fmt.Sprintf("%s=%s", name, u))
+		advertisedNamedURLs := make([]string, 0, len(initialAdvertisePeerURLs))
+		for _, u := range advertisedURLs {
+			advertisedNamedURLs = append(advertisedNamedURLs, fmt.Sprintf("%s=%s", name, u))
 		}
 
-		initialNamedUrls := []string{advertisedNamedUrls[0]}
+		initialNamedURLs := []string{advertisedNamedURLs[0]}
 		if strategy != PreparedStrategy && fresh {
-			adder, err := NewMemberAdder(
+			adder, err := newMemberAdder(
 				activeNodes,
 				strategy,
 				clientPort,
 				clusterSize,
-				discoveryUrl,
+				discoveryURL,
 			)
 			if err != nil {
 				return nil, err
 			}
-			initialUrls, err := adder.Add(ctx, name, advertisedUrls)
+			initialURLs, err := adder.Add(ctx, name, advertisedURLs)
 			if err != nil {
-				return nil, fmt.Errorf("unable to add node %q with peer urls %q to the cluster: %v", name, initialAdvertisePeerUrls, err)
+				return nil, fmt.Errorf("unable to add node %q with peer urls %q to the cluster: %v", name, initialAdvertisePeerURLs, err)
 			}
 
-			initialNamedUrls = []string{}
-			for _, u := range initialUrls {
-				initialNamedUrls = append(initialNamedUrls, fmt.Sprintf("%s=%s", name, u))
+			initialNamedURLs = []string{}
+			for _, u := range initialURLs {
+				initialNamedURLs = append(initialNamedURLs, fmt.Sprintf("%s=%s", name, u))
 			}
 		}
 
-		return &Result{
-			InitialCluster:      append(initialNamedUrls, activeNamedUrls...),
+		return &EtcdConfig{
+			InitialCluster:      append(initialNamedURLs, activeNamedURLs...),
 			InitialClusterState: "existing",
-			AdvertisePeerUrls:   initialAdvertisePeerUrls,
+			AdvertisePeerURLs:   initialAdvertisePeerURLs,
 			Name:                name,
 		}, nil
 	} else {
-		return &Result{
+		return &EtcdConfig{
 			InitialClusterState: "new",
-			Discovery:           discoveryUrl,
-			AdvertisePeerUrls:   initialAdvertisePeerUrls,
+			Discovery:           discoveryURL,
+			AdvertisePeerURLs:   initialAdvertisePeerURLs,
 			Name:                name,
 		}, nil
 	}

@@ -15,30 +15,31 @@ import (
 	"github.com/sttts/elastic-etcd/join"
 )
 
-type Result struct {
-	join.Result
+// EtcdConfig is the result of the elastic-etcd algorithm, turned into etcd flags or env vars.
+type EtcdConfig struct {
+	join.EtcdConfig
 	DataDir string
 }
 
-func joinEnv(r *Result) map[string]string {
+func joinEnv(r *EtcdConfig) map[string]string {
 	return map[string]string{
 		"ETCD_INITIAL_CLUSTER":            strings.Join(r.InitialCluster, ","),
 		"ETCD_INITIAL_CLUSTER_STATE":      r.InitialClusterState,
-		"ETCD_INITIAL_ADVERTISE_PEER_URL": r.AdvertisePeerUrls,
+		"ETCD_INITIAL_ADVERTISE_PEER_URL": r.AdvertisePeerURLs,
 		"ETCD_DISCOVERY":                  r.Discovery,
 		"ETCD_NAME":                       r.Name,
 		"ETCD_DATA_DIR":                   r.DataDir,
 	}
 }
 
-func printEnv(r *Result) {
+func printEnv(r *EtcdConfig) {
 	vars := joinEnv(r)
 	for k, v := range vars {
 		fmt.Printf("%s=\"%s\"\n", k, v)
 	}
 }
 
-func printDropin(r *Result) {
+func printDropin(r *EtcdConfig) {
 	println("[service]")
 	vars := joinEnv(r)
 	for k, v := range vars {
@@ -46,7 +47,8 @@ func printDropin(r *Result) {
 	}
 }
 
-func (r *Result) Flags() []string {
+// Flags turns an EtcdConfig struct into etcd flags.
+func (r *EtcdConfig) Flags() []string {
 	args := []string{}
 	if r.InitialClusterState != "" {
 		args = append(args, fmt.Sprintf("-initial-cluster-state=%s", r.InitialClusterState))
@@ -57,8 +59,8 @@ func (r *Result) Flags() []string {
 	if r.Discovery != "" {
 		args = append(args, fmt.Sprintf("-discovery=%s", r.Discovery))
 	}
-	if r.AdvertisePeerUrls != "" {
-		args = append(args, fmt.Sprintf("-initial-advertise-peer-urls=%s", r.AdvertisePeerUrls))
+	if r.AdvertisePeerURLs != "" {
+		args = append(args, fmt.Sprintf("-initial-advertise-peer-urls=%s", r.AdvertisePeerURLs))
 	}
 
 	args = append(args, fmt.Sprintf("-name=%s", r.Name))
@@ -68,20 +70,22 @@ func (r *Result) Flags() []string {
 	return args
 }
 
-func printFlags(r *Result) {
+func printFlags(r *EtcdConfig) {
 	params := strings.Join(r.Flags(), " ")
 	fmt.Fprintln(os.Stdout, params)
 }
 
-func Run(args []string) (*Result, string, error) {
+// Run starts the elastic-etcd algorithm on the given flags and return an EtcdConfig and the
+// output format.
+func Run(args []string) (*EtcdConfig, string, error) {
 	var (
-		discoveryUrl             string
+		discoveryURL             string
 		joinStrategy             string
 		format                   string
 		name                     string
 		clientPort               int
 		clusterSize              int
-		initialAdvertisePeerUrls string
+		initialAdvertisePeerURLs string
 		dataDir                  string
 	)
 
@@ -92,18 +96,18 @@ func Run(args []string) (*Result, string, error) {
 		if name == "" {
 			return errors.New("name must be set")
 		}
-		if initialAdvertisePeerUrls == "" {
+		if initialAdvertisePeerURLs == "" {
 			return errors.New("initial-advertise-peer-urls must consist at least of one url")
 		}
-		if discoveryUrl == "" {
+		if discoveryURL == "" {
 			return errors.New("discovery-url must be set")
 		}
 
-		discoveryUrl = strings.TrimRight(discoveryUrl, "/")
+		discoveryURL = strings.TrimRight(discoveryURL, "/")
 
-		u, err := url.Parse(discoveryUrl)
+		u, err := url.Parse(discoveryURL)
 		if err != nil {
-			return fmt.Errorf("invalid discovery url %q: %v", discoveryUrl, err)
+			return fmt.Errorf("invalid discovery url %q: %v", discoveryURL, err)
 		}
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return errors.New("discovery url must use http or https scheme")
@@ -144,7 +148,7 @@ func Run(args []string) (*Result, string, error) {
 			Name:        "discovery-url",
 			Value:       "",
 			Usage:       "a etcd discovery url",
-			Destination: &discoveryUrl,
+			Destination: &discoveryURL,
 			EnvVar:      "ELASTIC_ETCD_DISCOVERY",
 		},
 		cli.StringFlag{
@@ -193,7 +197,7 @@ func Run(args []string) (*Result, string, error) {
 			Usage:       "the advertised peer urls of this instance",
 			EnvVar:      "ETCD_INITIAL_ADVERTISE_PEER_URLS",
 			Value:       "http://localhost:2380",
-			Destination: &initialAdvertisePeerUrls,
+			Destination: &initialAdvertisePeerURLs,
 		},
 	}
 	flag.CommandLine.VisitAll(func(f *flag.Flag) {
@@ -203,7 +207,7 @@ func Run(args []string) (*Result, string, error) {
 	})
 
 	var actionErr error
-	var actionResult *Result
+	var actionResult *EtcdConfig
 	app.Action = func(c *cli.Context) {
 		glog.V(6).Infof("flags: %v", args)
 
@@ -220,9 +224,9 @@ func Run(args []string) (*Result, string, error) {
 		fresh := !fileutil.Exist(dataDir)
 
 		jr, err := join.Join(
-			discoveryUrl,
+			discoveryURL,
 			name,
-			initialAdvertisePeerUrls,
+			initialAdvertisePeerURLs,
 			fresh,
 			clientPort,
 			clusterSize,
@@ -232,7 +236,7 @@ func Run(args []string) (*Result, string, error) {
 			actionErr = fmt.Errorf("cluster join failed: %v", err)
 			return
 		}
-		actionResult = &Result{*jr, dataDir}
+		actionResult = &EtcdConfig{*jr, dataDir}
 	}
 
 	err := app.Run(args)
