@@ -2,7 +2,7 @@
 
 # elastic-etcd
 
-An **EXPERIMENTAL** wrapper around etcd2 to add elastic discovery and join.
+An **EXPERIMENTAL** wrapper around [etcd2](https://github.com/coreos/etcd) to add elastic discovery and join.
 
 ## Ratio
 
