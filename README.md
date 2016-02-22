@@ -39,6 +39,10 @@ Depending on the context where elastic-etcd is used, it can print out either etc
 
 - `elastic-etcd -o dropin ...` prints
    ```
+   [Unit]
+   After=elastic-etcd.service
+   Requires=elastic-etcd.service
+
    [Service]
    Environment="ETCD_NAME=server1"
    Environment="ETCD_INITIAL_CLUSTER_STATE=new"
@@ -61,7 +65,6 @@ Depending on the context where elastic-etcd is used, it can print out either etc
           content: |
             [Unit]
             Description=Elastic etcd
-            Before=etcd2.service
     
             [Service]
             Type=oneshot
