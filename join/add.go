@@ -157,6 +157,11 @@ func (ma *memberAdder) protectCluster(ctx context.Context) error {
 		return fmt.Errorf("cluster is already full with %d members", ma.targetSize)
 	}
 
+	if startedMembers == 1 {
+		glog.Infof("One node cluster found. Joining is always unsafe, nothing to do about that. Continuing.")
+		return nil
+	}
+
 	futureQuorum := (startedMembers+1)/2 + 1
 	if healthyMembers < futureQuorum {
 		return fmt.Errorf("cannot add another member temporarily to the %d member "+
