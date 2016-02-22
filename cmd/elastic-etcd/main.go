@@ -40,7 +40,12 @@ func printEnv(r *EtcdConfig) {
 }
 
 func printDropin(r *EtcdConfig) {
-	fmt.Print("[Service]\n")
+	fmt.Print(`[Unit]
+After=elastic-etcd.service
+Requires=elastic-etcd.service
+
+[Service]
+`)
 	vars := joinEnv(r)
 	for k, v := range vars {
 		fmt.Printf("Environment=\"%s=%s\"\n", k, v)
