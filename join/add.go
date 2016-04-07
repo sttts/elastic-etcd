@@ -232,6 +232,7 @@ func (ma *memberAdder) Add(
 
 	added, err := discovery.Add(ctx, ma.discoveryURL, &discovery.Machine{
 		Member: client.Member{
+			Name:     name,
 			ID:       m.ID,
 			PeerURLs: urls,
 		},
