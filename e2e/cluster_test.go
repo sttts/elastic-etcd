@@ -14,7 +14,7 @@ import (
 	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/coreos/gexpect"
 	"github.com/fatih/color"
-	elastic "github.com/sttts/elastic-etcd/cmd/elastic-etcd"
+	elastic "github.com/sttts/elastic-etcd/pkg/elastic-etcd"
 )
 
 type etcdProcessCluster struct {
