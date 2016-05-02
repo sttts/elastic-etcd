@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
 	"github.com/coreos/etcd/client"
 	"github.com/coreos/etcd/rafthttp"
 	"github.com/golang/glog"
 	"github.com/sttts/elastic-etcd/discovery"
+	"golang.org/x/net/context"
 	"golang.org/x/net/context/ctxhttp"
 )
 

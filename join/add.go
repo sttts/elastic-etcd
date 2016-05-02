@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
 	"github.com/coreos/etcd/client"
 	"github.com/golang/glog"
 	"github.com/sttts/elastic-etcd/discovery"
+	"golang.org/x/net/context"
 )
 
 type memberAdder struct {
