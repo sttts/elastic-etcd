@@ -3,6 +3,7 @@ package e2e
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/coreos/etcd/client"
 	"github.com/pborman/uuid"
@@ -61,6 +62,7 @@ func testRestartEtcd(t *testing.T, cfg *elasticEtcdClusterConfig) {
 
 	// stop process
 	_ = epc.procs[2].proc.Close()
+	time.Sleep(time.Second) // FIXME(sttts): do not fix races with sleeps :-(
 
 	// restart etcd with same flags
 	proc, err := newEtcdProcess(epc.procs[2].cfg)
