@@ -220,7 +220,7 @@ func newEtcdProcess(cfg *etcdProcessConfig) (*etcdProcess, error) {
 	_, filename, _, _ := runtime.Caller(1)
 	etcd := path.Join(path.Dir(filename), "../../../../../bin/etcd")
 
-	if fileutil.Exist(etcd) == false {
+	if !fileutil.Exist(etcd) {
 		return nil, fmt.Errorf("could not find etcd binary at %s", etcd)
 	}
 	child, err := spawnCmd(append([]string{etcd}, cfg.args...))

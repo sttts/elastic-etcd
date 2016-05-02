@@ -212,7 +212,7 @@ func Run(args []string) (*EtcdConfig, string, error) {
 	}
 	flag.CommandLine.VisitAll(func(f *flag.Flag) {
 		if !strings.HasPrefix(f.Name, "test.") {
-			app.Flags = append(app.Flags, cliext.FlagsFlag{f})
+			app.Flags = append(app.Flags, cliext.FlagsFlag{Flag: f})
 		}
 	})
 
