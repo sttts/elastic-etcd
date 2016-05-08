@@ -8,6 +8,7 @@ import (
 // FlagsFlag is a github.com/codegangsta/cli.Flag based on a golang flag.Flag.
 type FlagsFlag struct {
 	*flag.Flag
+	Hidden bool
 }
 
 // Apply adds a FlagsFlag to a flag.FlagSet.
